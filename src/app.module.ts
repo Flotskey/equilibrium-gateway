@@ -1,11 +1,12 @@
+import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { ExchangeModule } from './exchange/exchange.module';
 import { PrivateExchangeService } from './exchange/private-exchange.service';
 import { PublicExchangeService } from './exchange/public-exchange.service';
-import { ExchangeModule } from './exchange/exchange.module';
-import { Module } from '@nestjs/common';
 import { InMemorySessionStore } from './session-store/in-memory-session-store.service';
 
 @Module({
-  imports: [ExchangeModule],
+  imports: [ExchangeModule, ConfigModule.forRoot({ isGlobal: true })],
   controllers: [],
   providers: [
     PrivateExchangeService,

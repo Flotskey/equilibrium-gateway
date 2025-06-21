@@ -1,17 +1,18 @@
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { AppModule } from './app.module';
+import { GlobalExceptionFilter } from './global-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
-    snapshot: true,
+    snapshot: true
   });
+
+  app.useGlobalFilters(new GlobalExceptionFilter());
 
   const config = new DocumentBuilder()
     .setTitle('Equilibrium Gateway API')
-    .setDescription(
-      'The Gateway API to access CEX/DEX exchanges and other stuff like swaps and perps',
-    )
+    .setDescription('The Gateway API to access CEX/DEX exchanges and other stuff like swaps and perps')
     .setVersion('1.0')
     .build();
   const documentFactory = () => SwaggerModule.createDocument(app, config);

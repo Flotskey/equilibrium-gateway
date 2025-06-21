@@ -1,19 +1,25 @@
-import { ExchangesController } from './exchange.controller';
 import { Module } from '@nestjs/common';
-import { PublicExchangeService } from './public-exchange.service';
-import { PrivateExchangeService } from './private-exchange.service';
 import { InMemorySessionStore } from 'src/session-store/in-memory-session-store.service';
+import { PrivateExchangeController } from './private-exchange.controller';
+import { PrivateExchangeService } from './private-exchange.service';
+import { PublicExchangeController } from './public-exchange.controller';
+import { PublicExchangeService } from './public-exchange.service';
 
 @Module({
   imports: [],
-  controllers: [ExchangesController],
+  controllers: [PublicExchangeController, PrivateExchangeController],
   providers: [
     PublicExchangeService,
     PrivateExchangeService,
     {
-      provide: 'SessionStore',
-      useClass: InMemorySessionStore
+      provide: 'PublicSessionStore',
+      useFactory: () => new InMemorySessionStore()
+    },
+    {
+      provide: 'PrivateSessionStore',
+      useFactory: () => new InMemorySessionStore(10 * 60 * 1000) // 10 minutes
     }
-  ]
+  ],
+  exports: ['PublicSessionStore', 'PrivateSessionStore']
 })
 export class ExchangeModule {}
