@@ -1,23 +1,25 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
-import * as ccxt from 'ccxt';
-import { Exchange } from 'ccxt';
-import { GatewayOrder } from 'src/models/gateway-order.model';
+import { CcxtOrder } from 'src/models/ccxt';
 import { SessionStore } from 'src/session-store/session-store.interface';
 import { CancelOrderDto } from './dto/cancel-order.dto';
+import { CreateConnectionDto } from './dto/create-connection.dto';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { CreateOrdersDto } from './dto/create-orders.dto';
 import { EditOrderDto } from './dto/edit-order.dto';
 import { ExchangeCredentialsDto } from './dto/exchange-credentials.dto';
-import { toGatewayOrder } from './order.mapper';
+import { RemoveConnectionDto } from './dto/remove-connection.dto';
+import { ExchangeFactory } from './exchange.factory';
+import { ExchangeWrapper } from './wrappers/exchange-wrapper.interface';
 
 @Injectable()
 export class PrivateExchangeService {
   /**
-   * sessionKey: `${userId}:${exchangeId}` -> ccxt Exchange
+   * sessionKey: `${userId}:${exchangeId}` -> ExchangeWrapper
    */
   constructor(
     @Inject('PrivateSessionStore')
-    private readonly sessionStore: SessionStore<Exchange>
+    private readonly sessionStore: SessionStore<ExchangeWrapper>,
+    private readonly exchangeFactory: ExchangeFactory
   ) {}
 
   private getSessionKey(userId: string, exchangeId: string): string {
@@ -28,15 +30,12 @@ export class PrivateExchangeService {
     userId: string,
     exchangeId: string,
     creds: ExchangeCredentialsDto
-  ): Promise<Exchange> {
+  ): Promise<ExchangeWrapper> {
     const key = this.getSessionKey(userId, exchangeId);
     let exchange = await this.sessionStore.get(key);
 
     if (!exchange) {
-      exchange = new ccxt[exchangeId.toLowerCase()]({
-        ...creds,
-        enableRateLimit: true
-      });
+      exchange = this.exchangeFactory.create(exchangeId, creds);
       await exchange.loadMarkets();
       await this.sessionStore.set(key, exchange);
     }
@@ -44,12 +43,12 @@ export class PrivateExchangeService {
     return exchange;
   }
 
-  private async getExchange(userId: string, exchangeId: string): Promise<Exchange | undefined> {
+  private async getExchange(userId: string, exchangeId: string): Promise<ExchangeWrapper | undefined> {
     return this.sessionStore.get(this.getSessionKey(userId, exchangeId));
   }
 
-  private async removeExchange(userId: string, exchangeId: string): Promise<void> {
-    const key = this.getSessionKey(userId, exchangeId);
+  async removeConnection(dto: RemoveConnectionDto): Promise<void> {
+    const key = this.getSessionKey(dto.userId, dto.exchangeId);
     const exchange = await this.sessionStore.get(key);
 
     if (exchange && typeof exchange.close === 'function') {
@@ -59,7 +58,13 @@ export class PrivateExchangeService {
     await this.sessionStore.delete(key);
   }
 
-  async createOrder(dto: CreateOrderDto): Promise<GatewayOrder> {
+  async createConnection(dto: CreateConnectionDto): Promise<void> {
+    const exchange = await this.getOrCreateExchange(dto.userId, dto.exchangeId, dto.creds);
+    // test the connection by fetching the balance
+    await exchange.fetchBalance();
+  }
+
+  async createOrder(dto: CreateOrderDto): Promise<CcxtOrder> {
     const { userId, exchangeId, symbol, type, side, amount, price, params } = dto;
 
     const exchange = await this.getExchange(userId, exchangeId);
@@ -68,11 +73,10 @@ export class PrivateExchangeService {
       throw new Error('Exchange instance not found for user');
     }
 
-    const ccxtOrder = await exchange.createOrder(symbol, type, side, amount, price, params);
-    return toGatewayOrder(ccxtOrder);
+    return await exchange.createOrder(symbol, type, side, amount, price, params);
   }
 
-  async editOrder(dto: EditOrderDto): Promise<GatewayOrder> {
+  async editOrder(dto: EditOrderDto): Promise<CcxtOrder> {
     let { userId, exchangeId, id, symbol, type, side, amount, price, params } = dto;
 
     id = String(id);
@@ -83,11 +87,10 @@ export class PrivateExchangeService {
       throw new Error('Exchange instance not found for user');
     }
 
-    const ccxtOrder = await exchange.editOrder(id, symbol, type, side, amount, price, params);
-    return toGatewayOrder(ccxtOrder);
+    return await exchange.editOrder(id, symbol, type, side, amount, price, params);
   }
 
-  async createOrders(dto: CreateOrdersDto): Promise<GatewayOrder[]> {
+  async createOrders(dto: CreateOrdersDto): Promise<CcxtOrder[]> {
     const { userId, exchangeId, orders } = dto;
     const exchange = await this.getExchange(userId, exchangeId);
 
@@ -99,8 +102,7 @@ export class PrivateExchangeService {
       throw new BadRequestException(`The exchange '${exchangeId}' does not support batch order creation.`);
     }
 
-    const ccxtOrders = await exchange.createOrders(orders);
-    return ccxtOrders.map(toGatewayOrder);
+    return await exchange.createOrders(orders);
   }
 
   async cancelOrder(dto: CancelOrderDto): Promise<Record<string, any>> {

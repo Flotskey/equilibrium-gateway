@@ -14,6 +14,7 @@ async function bootstrap() {
     .setTitle('Equilibrium Gateway API')
     .setDescription('The Gateway API to access CEX/DEX exchanges and other stuff like swaps and perps')
     .setVersion('1.0')
+    .addBearerAuth()
     .build();
   const documentFactory = () => SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('swagger', app, documentFactory);

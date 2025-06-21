@@ -1,4 +1,4 @@
-export interface RequiredCredentialsDto {
+export interface CcxtRequiredCredentials {
   apiKey: boolean;
   secret: boolean;
   uid: boolean;
