@@ -23,7 +23,7 @@ import { PublicExchangeService } from './public-exchange.service';
     },
     {
       provide: 'PrivateSessionStore',
-      useFactory: () => new InMemorySessionStore(10 * 60 * 1000) // 10 minutes
+      useFactory: () => new InMemorySessionStore(20)
     }
   ],
   exports: ['PublicSessionStore', 'PrivateSessionStore', ExchangeFactory]

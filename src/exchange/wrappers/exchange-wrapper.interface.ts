@@ -1,7 +1,9 @@
+import { Exchange } from 'ccxt';
 import { CcxtBalance, CcxtMarket, CcxtOrder, CcxtRequiredCredentials } from 'src/models/ccxt';
 import { OrderRequestDto } from '../dto/create-orders.dto';
 
 export interface ExchangeWrapper {
+  readonly exchange: Exchange;
   // Market operations
   loadMarkets(): Promise<void>;
   fetchMarkets(): Promise<CcxtMarket[]>;

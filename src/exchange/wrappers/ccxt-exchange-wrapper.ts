@@ -5,15 +5,16 @@ import { OrderRequestDto } from '../dto/create-orders.dto';
 import { ExchangeWrapper } from './exchange-wrapper.interface';
 
 export class CcxtExchangeWrapper implements ExchangeWrapper {
-  private exchange: Exchange;
+  public exchange: Exchange;
 
   constructor(exchangeId: string, config: Record<string, any> = {}) {
-    const ExchangeInstance = ccxt[exchangeId.toLowerCase()];
-    if (!ExchangeInstance) {
+    const proExchangeId = exchangeId.toLowerCase();
+    const exchangeClass = ccxt.pro[proExchangeId] || ccxt[proExchangeId];
+    if (!exchangeClass) {
       throw new Error(`Exchange '${exchangeId}' is not supported by CCXT`);
     }
 
-    this.exchange = new ExchangeInstance({
+    this.exchange = new exchangeClass({
       ...config,
       enableRateLimit: true
     });

@@ -12,7 +12,7 @@ async function bootstrap() {
 
   const config = new DocumentBuilder()
     .setTitle('Equilibrium Gateway API')
-    .setDescription('The Gateway API to access CEX/DEX exchanges and other stuff like swaps and perps')
+    .setDescription('The Gateway API for accessing third-party APIs and microservices')
     .setVersion('1.0')
     .addBearerAuth()
     .build();

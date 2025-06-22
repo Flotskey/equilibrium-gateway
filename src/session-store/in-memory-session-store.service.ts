@@ -8,7 +8,12 @@ type SessionValue<T> = {
 
 export class InMemorySessionStore<T> implements SessionStore<T> {
   private store = new Map<string, SessionValue<T>>();
-  constructor(private readonly sessionTtlMs: number = 240 * 60 * 1000) {} // 240 minutes
+  private readonly sessionTtlMs: number;
+
+  constructor(sessionTtlMinutes: number = 240) {
+    // 240 minutes
+    this.sessionTtlMs = sessionTtlMinutes * 60 * 1000;
+  }
 
   async set(key: string, value: T): Promise<void> {
     this.removeTimeout(key);
