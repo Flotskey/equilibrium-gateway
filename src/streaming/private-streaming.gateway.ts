@@ -1,4 +1,5 @@
 import { Logger, UsePipes, ValidationPipe } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
 import {
   ConnectedSocket,
   MessageBody,
@@ -13,6 +14,7 @@ import { Server, Socket } from 'socket.io';
 import { AuthService } from 'src/auth/auth.service';
 import { SubscriptionDto } from './dto/subscription.dto';
 import { PrivateTickerService } from './private-ticker.service';
+import { EXCHANGE_PRIVATE_TICKER_UPDATE_EVENT, SOCKET_TICKER_EVENT } from './streaming-events.constants';
 
 interface AuthenticatedSocket extends Socket {
   user: {
@@ -91,9 +93,11 @@ export class PrivateStreamingGateway implements OnGatewayInit, OnGatewayConnecti
     }
   }
 
-  // Note: The @OnEvent handler is now in the PublicStreamingGateway.
-  // We need to decide how to route ticker events. For now, let's assume
-  // the public gateway will broadcast all of them, but we can refine this.
+  @OnEvent(EXCHANGE_PRIVATE_TICKER_UPDATE_EVENT)
+  handleTickerUpdate(payload: any) {
+    const room = this.getRoomName(payload.userId, payload.exchangeId, payload.symbol);
+    this.server.to(room).emit(SOCKET_TICKER_EVENT, payload);
+  }
 
   private getRoomName(userId: string, exchangeId: string, symbol: string): string {
     return `private:${userId}:${exchangeId}:${symbol}`;

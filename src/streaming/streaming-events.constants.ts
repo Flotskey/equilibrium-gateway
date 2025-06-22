@@ -1,7 +1,8 @@
-export const TICKER_UPDATED_EVENT = 'ticker.updated';
+// Backend event for public ticker updates
+export const EXCHANGE_PUBLIC_TICKER_UPDATE_EVENT = 'exchange.public.ticker.update';
 
-// Backend event: emitted internally when a ticker is updated
-export const EXCHANGE_TICKER_UPDATE_EVENT = 'exchange.ticker.update';
+// Backend event for private ticker updates
+export const EXCHANGE_PRIVATE_TICKER_UPDATE_EVENT = 'exchange.private.ticker.update';
 
-// Client event: emitted to clients via Socket.IO
+// Client event: emitted to clients via Socket.IO for both public and private tickers
 export const SOCKET_TICKER_EVENT = 'ticker';

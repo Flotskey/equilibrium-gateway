@@ -4,7 +4,7 @@ import { Exchange } from 'ccxt';
 import { ExchangeFactory } from 'src/exchange/exchange.factory';
 import { ExchangeWrapper } from 'src/exchange/wrappers/exchange-wrapper.interface';
 import { SessionStore } from 'src/session-store/session-store.interface';
-import { EXCHANGE_TICKER_UPDATE_EVENT } from './streaming-events.constants';
+import { EXCHANGE_PUBLIC_TICKER_UPDATE_EVENT } from './streaming-events.constants';
 
 @Injectable()
 export class PublicTickerService {
@@ -76,7 +76,7 @@ export class PublicTickerService {
     while (this.symbolSubscribers.has(subscriptionKey)) {
       try {
         const ticker = await exchange.watchTicker(symbol);
-        this.eventEmitter.emit(EXCHANGE_TICKER_UPDATE_EVENT, { ...ticker, exchangeId });
+        this.eventEmitter.emit(EXCHANGE_PUBLIC_TICKER_UPDATE_EVENT, { ...ticker, exchangeId });
       } catch (e) {
         this.logger.error(`Error in watcher for ${subscriptionKey}: ${e.message}`, e.stack);
         // CCXT Pro handles reconnections, so we don't break the loop.

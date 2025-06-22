@@ -3,7 +3,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Exchange } from 'ccxt';
 import { ExchangeWrapper } from 'src/exchange/wrappers/exchange-wrapper.interface';
 import { SessionStore } from 'src/session-store/session-store.interface';
-import { TICKER_UPDATED_EVENT } from './streaming-events.constants';
+import { EXCHANGE_PRIVATE_TICKER_UPDATE_EVENT } from './streaming-events.constants';
 
 @Injectable()
 export class PrivateTickerService {
@@ -74,7 +74,7 @@ export class PrivateTickerService {
     while (this.symbolSubscribers.has(subscriptionKey)) {
       try {
         const ticker = await exchange.watchTicker(symbol);
-        this.eventEmitter.emit(TICKER_UPDATED_EVENT, { ...ticker, exchangeId, userId, isPrivate: true });
+        this.eventEmitter.emit(EXCHANGE_PRIVATE_TICKER_UPDATE_EVENT, { ...ticker, exchangeId, userId });
       } catch (e) {
         this.logger.error(`Error in private watcher for ${subscriptionKey}: ${e.message}`, e.stack);
         this.symbolSubscribers.delete(subscriptionKey);
