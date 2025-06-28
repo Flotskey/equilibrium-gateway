@@ -47,6 +47,12 @@ export class PrivateExchangeService {
     return this.sessionStore.get(this.getSessionKey(userId, exchangeId));
   }
 
+  async createConnection(dto: CreateConnectionDto): Promise<void> {
+    const exchange = await this.getOrCreateExchange(dto.userId, dto.exchangeId, dto.creds);
+    // test the connection by fetching the balance
+    await exchange.fetchBalance();
+  }
+
   async removeConnection(dto: RemoveConnectionDto): Promise<void> {
     const key = this.getSessionKey(dto.userId, dto.exchangeId);
     const exchange = await this.sessionStore.get(key);
@@ -56,12 +62,6 @@ export class PrivateExchangeService {
     }
 
     await this.sessionStore.delete(key);
-  }
-
-  async createConnection(dto: CreateConnectionDto): Promise<void> {
-    const exchange = await this.getOrCreateExchange(dto.userId, dto.exchangeId, dto.creds);
-    // test the connection by fetching the balance
-    await exchange.fetchBalance();
   }
 
   async createOrder(dto: CreateOrderDto): Promise<CcxtOrder> {
