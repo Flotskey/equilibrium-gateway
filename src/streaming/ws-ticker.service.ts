@@ -76,7 +76,7 @@ export class WsTickerService {
     set.delete(clientId);
     if (set.size === 0) {
       this.subscribers.delete(room);
-      // Optionally: stop watcher here
+      this.watcherTasks.delete(room);
     }
   }
 

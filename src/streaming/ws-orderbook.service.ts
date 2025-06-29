@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { OrderBook, OrderBooks } from 'ccxt';
 import { ExchangeInstanceService } from '../exchange/exchange-instance.service';
 import { ORDERBOOK_UPDATE_EVENT, ORDERBOOKS_UPDATE_EVENT } from './streaming-events.constants';
 
@@ -82,8 +83,7 @@ export class WsOrderbookService {
     set.delete(clientId);
     if (set.size === 0) {
       this.subscribers.delete(room);
-      // Optionally: stop watcher here
-      // this.stopOrderbookWatcher(room);
+      this.watcherTasks.delete(room);
     }
   }
 
@@ -93,13 +93,13 @@ export class WsOrderbookService {
     const exchange = await this.exchangeInstanceService.getOrCreatePublicExchange(exchangeId);
     try {
       while (this.subscribers.has(room)) {
-        let orderbookOrBooks;
+        let orderbooks: OrderBook | OrderBooks;
         if (symbols.length === 1) {
-          orderbookOrBooks = await exchange.exchange.watchOrderBook(symbols[0]);
-          this.eventEmitter.emit(ORDERBOOK_UPDATE_EVENT, { room, data: orderbookOrBooks });
+          orderbooks = await exchange.exchange.watchOrderBook(symbols[0]);
+          this.eventEmitter.emit(ORDERBOOK_UPDATE_EVENT, { room, data: orderbooks });
         } else {
-          orderbookOrBooks = await exchange.exchange.watchOrderBookForSymbols(symbols);
-          this.eventEmitter.emit(ORDERBOOKS_UPDATE_EVENT, { room, data: orderbookOrBooks });
+          orderbooks = await exchange.exchange.watchOrderBookForSymbols(symbols);
+          this.eventEmitter.emit(ORDERBOOKS_UPDATE_EVENT, { room, data: orderbooks });
         }
       }
     } catch (err) {
