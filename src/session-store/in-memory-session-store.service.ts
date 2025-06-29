@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { SessionStore } from './session-store.interface';
 
 type SessionValue<T> = {
@@ -9,6 +10,7 @@ type SessionValue<T> = {
 export class InMemorySessionStore<T> implements SessionStore<T> {
   private store = new Map<string, SessionValue<T>>();
   private readonly sessionTtlMs: number;
+  private readonly logger = new Logger(InMemorySessionStore.name);
 
   constructor(sessionTtlMinutes: number = 240) {
     // 240 minutes
@@ -20,7 +22,10 @@ export class InMemorySessionStore<T> implements SessionStore<T> {
     let timeoutHandle: NodeJS.Timeout | null = null;
     let expiresAt: Date | null = null;
     if (isFinite(this.sessionTtlMs)) {
-      timeoutHandle = setTimeout(() => this.delete(key), this.sessionTtlMs);
+      timeoutHandle = setTimeout(() => {
+        this.logger.log(`Session for key ${key} has expired and will be deleted (TTL reached).`);
+        this.delete(key);
+      }, this.sessionTtlMs);
       expiresAt = new Date(Date.now() + this.sessionTtlMs);
     }
     this.store.set(key, { data: value, expiresAt, timeoutHandle });
@@ -31,6 +36,7 @@ export class InMemorySessionStore<T> implements SessionStore<T> {
     if (!session) return undefined;
     // Refresh session TTL only if not infinite
     if (isFinite(this.sessionTtlMs) && session.data) {
+      this.logger.log(`Session for key ${key} has been refreshed (TTL reset).`);
       await this.set(key, session.data);
     }
     return session.data;
