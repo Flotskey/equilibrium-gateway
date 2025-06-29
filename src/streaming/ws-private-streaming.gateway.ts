@@ -1,8 +1,15 @@
 import { Logger, UseGuards, UsePipes, ValidationPipe } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
 import { ConnectedSocket, MessageBody, SubscribeMessage, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { WebSocketJwtAuthGuard } from '../auth/ws-jwt-auth.guard';
 import { StreamingDto } from './dto/streaming.dto';
+import {
+  SOCKET_TICKER_EVENT,
+  SOCKET_TICKERS_EVENT,
+  TICKER_UPDATE_EVENT,
+  TICKERS_UPDATE_EVENT
+} from './streaming-events.constants';
 import { WsPrivateOrderbookService } from './ws-private-orderbook.service';
 import { WsPrivateTickerService } from './ws-private-ticker.service';
 
@@ -18,6 +25,16 @@ export class WsPrivateStreamingGateway {
     private readonly tickerService: WsPrivateTickerService,
     private readonly orderbookService: WsPrivateOrderbookService
   ) {}
+
+  @OnEvent(TICKER_UPDATE_EVENT)
+  handleTickerUpdate({ room, data }: { room: string; data: any }) {
+    this.server.to(room).emit(SOCKET_TICKER_EVENT, data);
+  }
+
+  @OnEvent(TICKERS_UPDATE_EVENT)
+  handleTickersUpdate({ room, data }: { room: string; data: any }) {
+    this.server.to(room).emit(SOCKET_TICKERS_EVENT, data);
+  }
 
   // --- Ticker ---
   @SubscribeMessage('watchTicker')
