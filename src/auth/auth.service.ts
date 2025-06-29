@@ -4,10 +4,8 @@ import { FirebaseService } from '../firebase/firebase.service';
 
 @Injectable()
 export class AuthService {
-  constructor(
-    private readonly firebaseService: FirebaseService,
-    private readonly logger: Logger
-  ) {}
+  private readonly logger = new Logger(AuthService.name);
+  constructor(private readonly firebaseService: FirebaseService) {}
 
   async validateToken(token: string): Promise<DecodedIdToken | null> {
     try {
