@@ -4,6 +4,10 @@ import { ConnectedSocket, MessageBody, SubscribeMessage, WebSocketGateway, WebSo
 import { Server, Socket } from 'socket.io';
 import { StreamingDto } from './dto/streaming.dto';
 import {
+  ORDERBOOK_UPDATE_EVENT,
+  ORDERBOOKS_UPDATE_EVENT,
+  SOCKET_ORDERBOOK_EVENT,
+  SOCKET_ORDERBOOKS_EVENT,
   SOCKET_TICKER_EVENT,
   SOCKET_TICKERS_EVENT,
   TICKER_UPDATE_EVENT,
@@ -34,12 +38,27 @@ export class WsStreamingGateway {
     this.server.to(room).emit(SOCKET_TICKERS_EVENT, data);
   }
 
+  @OnEvent(ORDERBOOK_UPDATE_EVENT)
+  handleOrderbookUpdate({ room, data }: { room: string; data: any }) {
+    this.server.to(room).emit(SOCKET_ORDERBOOK_EVENT, data);
+  }
+
+  @OnEvent(ORDERBOOKS_UPDATE_EVENT)
+  handleOrderbooksUpdate({ room, data }: { room: string; data: any }) {
+    this.server.to(room).emit(SOCKET_ORDERBOOKS_EVENT, data);
+  }
+
   // --- Ticker ---
   @SubscribeMessage('watchTicker')
   async handleWatchTicker(@MessageBody() dto: StreamingDto, @ConnectedSocket() client: Socket) {
-    const room = await this.tickerService.watchTicker(client.id, dto.exchangeId, dto.symbol);
-    client.join(room);
-    this.logger.log(`Client ${client.id} joined room ${room} (watchTicker)`);
+    const { room, started } = await this.tickerService.watchTicker(client.id, dto.exchangeId, dto.symbol);
+    if (started) {
+      client.join(room);
+      this.logger.log(`Client ${client.id} joined room ${room} (watchTicker)`);
+    } else {
+      client.emit('error', { message: 'No public exchange instance found.' });
+      this.logger.warn(`Client ${client.id} could not join room ${room} (watchTicker) - missing exchange instance`);
+    }
   }
   @SubscribeMessage('unWatchTicker')
   async handleUnwatchTicker(@MessageBody() dto: StreamingDto, @ConnectedSocket() client: Socket) {
@@ -49,9 +68,14 @@ export class WsStreamingGateway {
   }
   @SubscribeMessage('watchTickers')
   async handleWatchTickers(@MessageBody() dto: StreamingDto, @ConnectedSocket() client: Socket) {
-    const room = await this.tickerService.watchTickers(client.id, dto.exchangeId, dto.symbols);
-    client.join(room);
-    this.logger.log(`Client ${client.id} joined room ${room} (watchTickers)`);
+    const { room, started } = await this.tickerService.watchTickers(client.id, dto.exchangeId, dto.symbols);
+    if (started) {
+      client.join(room);
+      this.logger.log(`Client ${client.id} joined room ${room} (watchTickers)`);
+    } else {
+      client.emit('error', { message: 'No public exchange instance found.' });
+      this.logger.warn(`Client ${client.id} could not join room ${room} (watchTickers) - missing exchange instance`);
+    }
   }
   @SubscribeMessage('unWatchTickers')
   async handleUnwatchTickers(@MessageBody() dto: StreamingDto, @ConnectedSocket() client: Socket) {
@@ -63,9 +87,14 @@ export class WsStreamingGateway {
   // --- Orderbook ---
   @SubscribeMessage('watchOrderBook')
   async handleWatchOrderBook(@MessageBody() dto: StreamingDto, @ConnectedSocket() client: Socket) {
-    const room = await this.orderbookService.watchOrderBook(client.id, dto.exchangeId, dto.symbol);
-    client.join(room);
-    this.logger.log(`Client ${client.id} joined room ${room} (watchOrderBook)`);
+    const { room, started } = await this.orderbookService.watchOrderBook(client.id, dto.exchangeId, dto.symbol);
+    if (started) {
+      client.join(room);
+      this.logger.log(`Client ${client.id} joined room ${room} (watchOrderBook)`);
+    } else {
+      client.emit('error', { message: 'No public exchange instance found.' });
+      this.logger.warn(`Client ${client.id} could not join room ${room} (watchOrderBook) - missing exchange instance`);
+    }
   }
   @SubscribeMessage('unWatchOrderBook')
   async handleUnwatchOrderBook(@MessageBody() dto: StreamingDto, @ConnectedSocket() client: Socket) {
@@ -75,9 +104,20 @@ export class WsStreamingGateway {
   }
   @SubscribeMessage('watchOrderBookForSymbols')
   async handleWatchOrderBookForSymbols(@MessageBody() dto: StreamingDto, @ConnectedSocket() client: Socket) {
-    const room = await this.orderbookService.watchOrderBookForSymbols(client.id, dto.exchangeId, dto.symbols);
-    client.join(room);
-    this.logger.log(`Client ${client.id} joined room ${room} (watchOrderBookForSymbols)`);
+    const { room, started } = await this.orderbookService.watchOrderBookForSymbols(
+      client.id,
+      dto.exchangeId,
+      dto.symbols
+    );
+    if (started) {
+      client.join(room);
+      this.logger.log(`Client ${client.id} joined room ${room} (watchOrderBookForSymbols)`);
+    } else {
+      client.emit('error', { message: 'No public exchange instance found.' });
+      this.logger.warn(
+        `Client ${client.id} could not join room ${room} (watchOrderBookForSymbols) - missing exchange instance`
+      );
+    }
   }
   @SubscribeMessage('unWatchOrderBookForSymbols')
   async handleUnwatchOrderBookForSymbols(@MessageBody() dto: StreamingDto, @ConnectedSocket() client: Socket) {

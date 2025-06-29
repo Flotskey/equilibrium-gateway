@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ExchangeInstanceService } from '../exchange/exchange-instance.service';
+import { ORDERBOOK_UPDATE_EVENT, ORDERBOOKS_UPDATE_EVENT } from './streaming-events.constants';
 
 @Injectable()
 export class WsOrderbookService {
@@ -9,7 +11,10 @@ export class WsOrderbookService {
   // Map<roomKey, Promise<void>>
   private watcherTasks = new Map<string, Promise<void>>();
 
-  constructor(private readonly exchangeInstanceService: ExchangeInstanceService) {}
+  constructor(
+    private readonly exchangeInstanceService: ExchangeInstanceService,
+    private readonly eventEmitter: EventEmitter2
+  ) {}
 
   // Helper to generate room key
   private getRoomKey(type: string, exchangeId: string, symbols: string[]): string {
@@ -17,13 +22,23 @@ export class WsOrderbookService {
   }
 
   // Single symbol
-  async watchOrderBook(clientId: string, exchangeId: string, symbol: string): Promise<string> {
+  async watchOrderBook(
+    clientId: string,
+    exchangeId: string,
+    symbol: string
+  ): Promise<{ room: string; started: boolean }> {
     const room = this.getRoomKey('orderbook', exchangeId, [symbol]);
     this.addSubscriber(room, clientId);
     if (!this.watcherTasks.has(room)) {
+      const exchange = await this.exchangeInstanceService.getOrCreatePublicExchange(exchangeId);
+      if (!exchange) {
+        this.logger.warn(`No public exchange instance found for exchange ${exchangeId}.`);
+        return { room, started: false };
+      }
       this.watcherTasks.set(room, this.startOrderbookWatcher(exchangeId, [symbol], room));
+      return { room, started: true };
     }
-    return room;
+    return { room, started: true };
   }
   async unWatchOrderBook(clientId: string, exchangeId: string, symbol: string): Promise<string> {
     const room = this.getRoomKey('orderbook', exchangeId, [symbol]);
@@ -32,13 +47,23 @@ export class WsOrderbookService {
   }
 
   // Multiple symbols (batch)
-  async watchOrderBookForSymbols(clientId: string, exchangeId: string, symbols: string[]): Promise<string> {
+  async watchOrderBookForSymbols(
+    clientId: string,
+    exchangeId: string,
+    symbols: string[]
+  ): Promise<{ room: string; started: boolean }> {
     const room = this.getRoomKey('orderbookForSymbols', exchangeId, symbols);
     this.addSubscriber(room, clientId);
     if (!this.watcherTasks.has(room)) {
+      const exchange = await this.exchangeInstanceService.getOrCreatePublicExchange(exchangeId);
+      if (!exchange) {
+        this.logger.warn(`No public exchange instance found for exchange ${exchangeId}.`);
+        return { room, started: false };
+      }
       this.watcherTasks.set(room, this.startOrderbookWatcher(exchangeId, symbols, room));
+      return { room, started: true };
     }
-    return room;
+    return { room, started: true };
   }
   async unWatchOrderBookForSymbols(clientId: string, exchangeId: string, symbols: string[]): Promise<string> {
     const room = this.getRoomKey('orderbookForSymbols', exchangeId, symbols);
@@ -68,9 +93,14 @@ export class WsOrderbookService {
     const exchange = await this.exchangeInstanceService.getOrCreatePublicExchange(exchangeId);
     try {
       while (this.subscribers.has(room)) {
-        // TODO: Integrate with CCXT Pro's watchOrderBook/watchOrderBookForSymbols
-        // Emit updates to socket.io room
-        // Stop when this.subscribers.has(room) === false
+        let orderbookOrBooks;
+        if (symbols.length === 1) {
+          orderbookOrBooks = await exchange.exchange.watchOrderBook(symbols[0]);
+          this.eventEmitter.emit(ORDERBOOK_UPDATE_EVENT, { room, data: orderbookOrBooks });
+        } else {
+          orderbookOrBooks = await exchange.exchange.watchOrderBookForSymbols(symbols);
+          this.eventEmitter.emit(ORDERBOOKS_UPDATE_EVENT, { room, data: orderbookOrBooks });
+        }
       }
     } catch (err) {
       this.logger.error(`Error in orderbook watcher for room ${room}: ${err.message}`, err.stack);

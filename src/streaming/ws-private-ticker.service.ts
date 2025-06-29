@@ -19,40 +19,66 @@ export class WsPrivateTickerService {
     return `${type}:${userId}:${exchangeId}:${symbols.sort().join(',')}`;
   }
 
-  async watchTicker(clientId: string, userId: string, exchangeId: string, symbol: string): Promise<string> {
+  async watchTicker(
+    clientId: string,
+    userId: string,
+    exchangeId: string,
+    symbol: string
+  ): Promise<{ room: string; started: boolean }> {
     const room = this.getRoomKey('ticker', userId, exchangeId, [symbol]);
-    this.addSubscriber(room, clientId);
+    this.addSubscriber(room, userId);
     if (!this.watcherTasks.has(room)) {
+      const exchange = await this.exchangeInstanceService.getPrivateExchange(userId, exchangeId);
+      if (!exchange) {
+        this.logger.warn(
+          `No private exchange instance found for user ${userId}, exchange ${exchangeId}. Did you call createConnection?`
+        );
+        return { room, started: false };
+      }
       this.watcherTasks.set(room, this.startTickerWatcher(userId, exchangeId, [symbol], room));
+      return { room, started: true };
     }
-    return room;
+    return { room, started: true };
   }
   async unWatchTicker(clientId: string, userId: string, exchangeId: string, symbol: string): Promise<string> {
     const room = this.getRoomKey('ticker', userId, exchangeId, [symbol]);
-    this.removeSubscriber(room, clientId);
+    this.removeSubscriber(room, userId);
     return room;
   }
-  async watchTickers(clientId: string, userId: string, exchangeId: string, symbols: string[]): Promise<string> {
+  async watchTickers(
+    clientId: string,
+    userId: string,
+    exchangeId: string,
+    symbols: string[]
+  ): Promise<{ room: string; started: boolean }> {
     const room = this.getRoomKey('tickers', userId, exchangeId, symbols);
-    this.addSubscriber(room, clientId);
+    this.addSubscriber(room, userId);
     if (!this.watcherTasks.has(room)) {
+      const exchange = await this.exchangeInstanceService.getPrivateExchange(userId, exchangeId);
+      if (!exchange) {
+        this.logger.warn(
+          `No private exchange instance found for user ${userId}, exchange ${exchangeId}. Did you call createConnection?`
+        );
+        return { room, started: false };
+      }
       this.watcherTasks.set(room, this.startTickerWatcher(userId, exchangeId, symbols, room));
+      return { room, started: true };
     }
-    return room;
+    return { room, started: true };
   }
   async unWatchTickers(clientId: string, userId: string, exchangeId: string, symbols: string[]): Promise<string> {
     const room = this.getRoomKey('tickers', userId, exchangeId, symbols);
-    this.removeSubscriber(room, clientId);
+    this.removeSubscriber(room, userId);
     return room;
   }
-  private addSubscriber(room: string, clientId: string) {
+  private addSubscriber(room: string, userId: string) {
     if (!this.subscribers.has(room)) this.subscribers.set(room, new Set());
-    this.subscribers.get(room)!.add(clientId);
+    this.subscribers.get(room)!.add(userId);
   }
-  private removeSubscriber(room: string, clientId: string) {
+  private removeSubscriber(room: string, userId: string) {
     if (!this.subscribers.has(room)) return;
     const set = this.subscribers.get(room)!;
-    set.delete(clientId);
+    set.delete(userId);
     if (set.size === 0) {
       this.subscribers.delete(room);
       // Optionally: stop watcher here
@@ -65,7 +91,8 @@ export class WsPrivateTickerService {
       this.logger.warn(
         `No private exchange instance found for user ${userId}, exchange ${exchangeId}. Did you call createConnection?`
       );
-      throw new Error('Private exchange instance not found. Please create a connection first.');
+      this.watcherTasks.delete(room);
+      return;
     }
     try {
       while (this.subscribers.has(room)) {

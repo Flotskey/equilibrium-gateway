@@ -1,5 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { OrderBook, OrderBooks } from 'ccxt';
 import { ExchangeInstanceService } from '../exchange/exchange-instance.service';
+import { ORDERBOOK_UPDATE_EVENT, ORDERBOOKS_UPDATE_EVENT } from './streaming-events.constants';
 
 @Injectable()
 export class WsPrivateOrderbookService {
@@ -7,23 +10,39 @@ export class WsPrivateOrderbookService {
   private subscribers = new Map<string, Set<string>>();
   private watcherTasks = new Map<string, Promise<void>>();
 
-  constructor(private readonly exchangeInstanceService: ExchangeInstanceService) {}
+  constructor(
+    private readonly exchangeInstanceService: ExchangeInstanceService,
+    private readonly eventEmitter: EventEmitter2
+  ) {}
 
   private getRoomKey(type: string, userId: string, exchangeId: string, symbols: string[]): string {
     return `${type}:${userId}:${exchangeId}:${symbols.sort().join(',')}`;
   }
 
-  async watchOrderBook(clientId: string, userId: string, exchangeId: string, symbol: string): Promise<string> {
+  async watchOrderBook(
+    clientId: string,
+    userId: string,
+    exchangeId: string,
+    symbol: string
+  ): Promise<{ room: string; started: boolean }> {
     const room = this.getRoomKey('orderbook', userId, exchangeId, [symbol]);
-    this.addSubscriber(room, clientId);
+    this.addSubscriber(room, userId);
     if (!this.watcherTasks.has(room)) {
+      const exchange = await this.exchangeInstanceService.getPrivateExchange(userId, exchangeId);
+      if (!exchange) {
+        this.logger.warn(
+          `No private exchange instance found for user ${userId}, exchange ${exchangeId}. Did you call createConnection?`
+        );
+        return { room, started: false };
+      }
       this.watcherTasks.set(room, this.startOrderbookWatcher(userId, exchangeId, [symbol], room));
+      return { room, started: true };
     }
-    return room;
+    return { room, started: true };
   }
   async unWatchOrderBook(clientId: string, userId: string, exchangeId: string, symbol: string): Promise<string> {
     const room = this.getRoomKey('orderbook', userId, exchangeId, [symbol]);
-    this.removeSubscriber(room, clientId);
+    this.removeSubscriber(room, userId);
     return room;
   }
   async watchOrderBookForSymbols(
@@ -31,13 +50,21 @@ export class WsPrivateOrderbookService {
     userId: string,
     exchangeId: string,
     symbols: string[]
-  ): Promise<string> {
+  ): Promise<{ room: string; started: boolean }> {
     const room = this.getRoomKey('orderbookForSymbols', userId, exchangeId, symbols);
-    this.addSubscriber(room, clientId);
+    this.addSubscriber(room, userId);
     if (!this.watcherTasks.has(room)) {
+      const exchange = await this.exchangeInstanceService.getPrivateExchange(userId, exchangeId);
+      if (!exchange) {
+        this.logger.warn(
+          `No private exchange instance found for user ${userId}, exchange ${exchangeId}. Did you call createConnection?`
+        );
+        return { room, started: false };
+      }
       this.watcherTasks.set(room, this.startOrderbookWatcher(userId, exchangeId, symbols, room));
+      return { room, started: true };
     }
-    return room;
+    return { room, started: true };
   }
   async unWatchOrderBookForSymbols(
     clientId: string,
@@ -46,17 +73,17 @@ export class WsPrivateOrderbookService {
     symbols: string[]
   ): Promise<string> {
     const room = this.getRoomKey('orderbookForSymbols', userId, exchangeId, symbols);
-    this.removeSubscriber(room, clientId);
+    this.removeSubscriber(room, userId);
     return room;
   }
-  private addSubscriber(room: string, clientId: string) {
+  private addSubscriber(room: string, userId: string) {
     if (!this.subscribers.has(room)) this.subscribers.set(room, new Set());
-    this.subscribers.get(room)!.add(clientId);
+    this.subscribers.get(room)!.add(userId);
   }
-  private removeSubscriber(room: string, clientId: string) {
+  private removeSubscriber(room: string, userId: string) {
     if (!this.subscribers.has(room)) return;
     const set = this.subscribers.get(room)!;
-    set.delete(clientId);
+    set.delete(userId);
     if (set.size === 0) {
       this.subscribers.delete(room);
       // Optionally: stop watcher here
@@ -74,13 +101,19 @@ export class WsPrivateOrderbookService {
       this.logger.warn(
         `No private exchange instance found for user ${userId}, exchange ${exchangeId}. Did you call createConnection?`
       );
-      throw new Error('Private exchange instance not found. Please create a connection first.');
+      this.watcherTasks.delete(room);
+      return;
     }
     try {
       while (this.subscribers.has(room)) {
-        // TODO: Integrate with CCXT Pro's watchOrderBook/watchOrderBookForSymbols
-        // Emit updates to socket.io room
-        // Stop when this.subscribers.has(room) === false
+        let orderbooks: OrderBook | OrderBooks;
+        if (symbols.length === 1) {
+          orderbooks = await exchange.exchange.watchOrderBook(symbols[0]);
+          this.eventEmitter.emit(ORDERBOOK_UPDATE_EVENT, { room, data: orderbooks });
+        } else {
+          orderbooks = await exchange.exchange.watchOrderBookForSymbols(symbols);
+          this.eventEmitter.emit(ORDERBOOKS_UPDATE_EVENT, { room, data: orderbooks });
+        }
       }
     } catch (err) {
       this.logger.error(`Error in private orderbook watcher for room ${room}: ${err.message}`, err.stack);

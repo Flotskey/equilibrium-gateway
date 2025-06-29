@@ -19,13 +19,19 @@ export class WsTickerService {
     return `${type}:${exchangeId}:${symbols.sort().join(',')}`;
   }
 
-  async watchTicker(clientId: string, exchangeId: string, symbol: string): Promise<string> {
+  async watchTicker(clientId: string, exchangeId: string, symbol: string): Promise<{ room: string; started: boolean }> {
     const room = this.getRoomKey('ticker', exchangeId, [symbol]);
     this.addSubscriber(room, clientId);
     if (!this.watcherTasks.has(room)) {
+      const exchange = await this.exchangeInstanceService.getOrCreatePublicExchange(exchangeId);
+      if (!exchange) {
+        this.logger.warn(`No public exchange instance found for exchange ${exchangeId}.`);
+        return { room, started: false };
+      }
       this.watcherTasks.set(room, this.startTickerWatcher(exchangeId, [symbol], room));
+      return { room, started: true };
     }
-    return room;
+    return { room, started: true };
   }
 
   async unWatchTicker(clientId: string, exchangeId: string, symbol: string): Promise<string> {
@@ -34,13 +40,23 @@ export class WsTickerService {
     return room;
   }
 
-  async watchTickers(clientId: string, exchangeId: string, symbols: string[]): Promise<string> {
+  async watchTickers(
+    clientId: string,
+    exchangeId: string,
+    symbols: string[]
+  ): Promise<{ room: string; started: boolean }> {
     const room = this.getRoomKey('tickers', exchangeId, symbols);
     this.addSubscriber(room, clientId);
     if (!this.watcherTasks.has(room)) {
+      const exchange = await this.exchangeInstanceService.getOrCreatePublicExchange(exchangeId);
+      if (!exchange) {
+        this.logger.warn(`No public exchange instance found for exchange ${exchangeId}.`);
+        return { room, started: false };
+      }
       this.watcherTasks.set(room, this.startTickerWatcher(exchangeId, symbols, room));
+      return { room, started: true };
     }
-    return room;
+    return { room, started: true };
   }
 
   async unWatchTickers(clientId: string, exchangeId: string, symbols: string[]): Promise<string> {
