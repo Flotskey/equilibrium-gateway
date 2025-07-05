@@ -26,6 +26,12 @@ export class PublicExchangeService {
     return exchange.requiredCredentials;
   }
 
+  async getTimeframes(exchangeId: string): Promise<any> {
+    const exchangeWrapper = await this.getOrCreateExchange(exchangeId);
+    await exchangeWrapper.loadMarkets();
+    return exchangeWrapper.exchange.timeframes;
+  }
+
   private async getOrCreateExchange(exchangeId: string): Promise<ExchangeWrapper> {
     const id = exchangeId.toLowerCase();
 

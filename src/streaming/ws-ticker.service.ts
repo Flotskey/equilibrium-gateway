@@ -82,15 +82,15 @@ export class WsTickerService {
 
   private async startTickerWatcher(exchangeId: string, symbols: string[], room: string): Promise<void> {
     this.logger.log(`Starting ticker watcher for room ${room}`);
-    const exchange = await this.exchangeInstanceService.getOrCreatePublicExchange(exchangeId);
+    const exchangeWrapper = await this.exchangeInstanceService.getOrCreatePublicExchange(exchangeId);
     try {
       while (this.subscribers.has(room)) {
         let tickers: Tickers | Ticker;
         if (symbols.length === 1) {
-          tickers = await exchange.exchange.watchTicker(symbols[0]);
+          tickers = await exchangeWrapper.exchange.watchTicker(symbols[0]);
           this.eventEmitter.emit(TICKER_UPDATE_EVENT, { room, data: tickers });
         } else {
-          tickers = await exchange.exchange.watchTickers(symbols);
+          tickers = await exchangeWrapper.exchange.watchTickers(symbols);
           this.eventEmitter.emit(TICKERS_UPDATE_EVENT, { room, data: tickers });
         }
       }
@@ -99,6 +99,11 @@ export class WsTickerService {
     } finally {
       this.logger.log(`Stopped ticker watcher for room ${room}`);
       this.watcherTasks.delete(room);
+      if (exchangeWrapper.exchange.has['unWatchTickers']) {
+        await exchangeWrapper.exchange.unWatchTickers(symbols);
+      } else {
+        await exchangeWrapper.exchange.close();
+      }
     }
   }
 }

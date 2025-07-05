@@ -105,8 +105,19 @@ export class WsOrderbookService {
     } catch (err) {
       this.logger.error(`Error in orderbook watcher for room ${room}: ${err.message}`, err.stack);
     } finally {
-      this.logger.log(`Stopped orderbook watcher for room ${room}`);
-      this.watcherTasks.delete(room);
+      await this.cleanupWatcher(exchange, room, symbols);
+    }
+  }
+
+  private async cleanupWatcher(exchangeWrapper: any, room: string, symbols: string[]) {
+    this.logger.log(`Stopped orderbook watcher for room ${room}`);
+    this.watcherTasks.delete(room);
+    if (symbols.length === 1 && exchangeWrapper.exchange.has['unWatchOrderBook']) {
+      await exchangeWrapper.exchange.unWatchOrderBook(symbols[0]);
+    } else if (symbols.length > 1 && exchangeWrapper.exchange.has['unWatchOrderBookForSymbols']) {
+      await exchangeWrapper.exchange.unWatchOrderBookForSymbols(symbols);
+    } else {
+      await exchangeWrapper.exchange.close();
     }
   }
 }

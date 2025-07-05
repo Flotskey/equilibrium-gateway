@@ -11,4 +11,9 @@ export class PublicExchangeController {
   getRequiredCredentials(@Param('exchangeId') exchangeId: string) {
     return this.publicExchangeService.getRequiredCredentials(exchangeId);
   }
+
+  @Get('timeframes')
+  getTimeframes(@Param('exchangeId') exchangeId: string) {
+    return this.publicExchangeService.getTimeframes(exchangeId);
+  }
 }
