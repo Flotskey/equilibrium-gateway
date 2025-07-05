@@ -112,8 +112,6 @@ export class WsPrivateTickerService {
       this.watcherTasks.delete(room);
       if (exchangeWrapper.exchange.has['unWatchTickers']) {
         await exchangeWrapper.exchange.unWatchTickers(symbols);
-      } else {
-        await exchangeWrapper.exchange.close();
       }
     }
   }

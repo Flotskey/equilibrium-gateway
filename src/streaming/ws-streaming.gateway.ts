@@ -2,10 +2,16 @@ import { Logger, UsePipes, ValidationPipe } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { ConnectedSocket, MessageBody, SubscribeMessage, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { StreamingDto } from './dto/streaming.dto';
+import { WatchOhlcvDto } from './dto/watch-ohlcv.dto';
+import { WatchOrderBookDto } from './dto/watch-orderbook.dto';
+import { WatchOrderBooksDto } from './dto/watch-orderbooks.dto';
+import { WatchTickerDto } from './dto/watch-ticker.dto';
+import { WatchTickersDto } from './dto/watch-tickers.dto';
 import {
+  OHLCV_UPDATE_EVENT,
   ORDERBOOK_UPDATE_EVENT,
   ORDERBOOKS_UPDATE_EVENT,
+  SOCKET_OHLCV_EVENT,
   SOCKET_ORDERBOOK_EVENT,
   SOCKET_ORDERBOOKS_EVENT,
   SOCKET_TICKER_EVENT,
@@ -13,6 +19,7 @@ import {
   TICKER_UPDATE_EVENT,
   TICKERS_UPDATE_EVENT
 } from './streaming-events.constants';
+import { WsOhlcvService } from './ws-ohlcv.service';
 import { WsOrderbookService } from './ws-orderbook.service';
 import { WsTickerService } from './ws-ticker.service';
 
@@ -25,7 +32,8 @@ export class WsStreamingGateway {
 
   constructor(
     private readonly tickerService: WsTickerService,
-    private readonly orderbookService: WsOrderbookService
+    private readonly orderbookService: WsOrderbookService,
+    private readonly ohlcvService: WsOhlcvService
   ) {}
 
   @OnEvent(TICKER_UPDATE_EVENT)
@@ -48,9 +56,14 @@ export class WsStreamingGateway {
     this.server.to(room).emit(SOCKET_ORDERBOOKS_EVENT, data);
   }
 
+  @OnEvent(OHLCV_UPDATE_EVENT)
+  handleOhlcvUpdate({ room, data }: { room: string; data: any }) {
+    this.server.to(room).emit(SOCKET_OHLCV_EVENT, data);
+  }
+
   // --- Ticker ---
   @SubscribeMessage('watchTicker')
-  async handleWatchTicker(@MessageBody() dto: StreamingDto, @ConnectedSocket() client: Socket) {
+  async handleWatchTicker(@MessageBody() dto: WatchTickerDto, @ConnectedSocket() client: Socket) {
     const { room, started } = await this.tickerService.watchTicker(client.id, dto.exchangeId, dto.symbol);
     if (started) {
       client.join(room);
@@ -61,13 +74,13 @@ export class WsStreamingGateway {
     }
   }
   @SubscribeMessage('unWatchTicker')
-  async handleUnwatchTicker(@MessageBody() dto: StreamingDto, @ConnectedSocket() client: Socket) {
+  async handleUnwatchTicker(@MessageBody() dto: WatchTickerDto, @ConnectedSocket() client: Socket) {
     const room = await this.tickerService.unWatchTicker(client.id, dto.exchangeId, dto.symbol);
     client.leave(room);
     this.logger.log(`Client ${client.id} left room ${room} (unWatchTicker)`);
   }
   @SubscribeMessage('watchTickers')
-  async handleWatchTickers(@MessageBody() dto: StreamingDto, @ConnectedSocket() client: Socket) {
+  async handleWatchTickers(@MessageBody() dto: WatchTickersDto, @ConnectedSocket() client: Socket) {
     const { room, started } = await this.tickerService.watchTickers(client.id, dto.exchangeId, dto.symbols);
     if (started) {
       client.join(room);
@@ -78,7 +91,7 @@ export class WsStreamingGateway {
     }
   }
   @SubscribeMessage('unWatchTickers')
-  async handleUnwatchTickers(@MessageBody() dto: StreamingDto, @ConnectedSocket() client: Socket) {
+  async handleUnwatchTickers(@MessageBody() dto: WatchTickersDto, @ConnectedSocket() client: Socket) {
     const room = await this.tickerService.unWatchTickers(client.id, dto.exchangeId, dto.symbols);
     client.leave(room);
     this.logger.log(`Client ${client.id} left room ${room} (unWatchTickers)`);
@@ -86,7 +99,7 @@ export class WsStreamingGateway {
 
   // --- Orderbook ---
   @SubscribeMessage('watchOrderBook')
-  async handleWatchOrderBook(@MessageBody() dto: StreamingDto, @ConnectedSocket() client: Socket) {
+  async handleWatchOrderBook(@MessageBody() dto: WatchOrderBookDto, @ConnectedSocket() client: Socket) {
     const { room, started } = await this.orderbookService.watchOrderBook(client.id, dto.exchangeId, dto.symbol);
     if (started) {
       client.join(room);
@@ -97,13 +110,13 @@ export class WsStreamingGateway {
     }
   }
   @SubscribeMessage('unWatchOrderBook')
-  async handleUnwatchOrderBook(@MessageBody() dto: StreamingDto, @ConnectedSocket() client: Socket) {
+  async handleUnwatchOrderBook(@MessageBody() dto: WatchOrderBookDto, @ConnectedSocket() client: Socket) {
     const room = await this.orderbookService.unWatchOrderBook(client.id, dto.exchangeId, dto.symbol);
     client.leave(room);
     this.logger.log(`Client ${client.id} left room ${room} (unWatchOrderBook)`);
   }
   @SubscribeMessage('watchOrderBookForSymbols')
-  async handleWatchOrderBookForSymbols(@MessageBody() dto: StreamingDto, @ConnectedSocket() client: Socket) {
+  async handleWatchOrderBookForSymbols(@MessageBody() dto: WatchOrderBooksDto, @ConnectedSocket() client: Socket) {
     const { room, started } = await this.orderbookService.watchOrderBookForSymbols(
       client.id,
       dto.exchangeId,
@@ -120,9 +133,28 @@ export class WsStreamingGateway {
     }
   }
   @SubscribeMessage('unWatchOrderBookForSymbols')
-  async handleUnwatchOrderBookForSymbols(@MessageBody() dto: StreamingDto, @ConnectedSocket() client: Socket) {
+  async handleUnwatchOrderBookForSymbols(@MessageBody() dto: WatchOrderBooksDto, @ConnectedSocket() client: Socket) {
     const room = await this.orderbookService.unWatchOrderBookForSymbols(client.id, dto.exchangeId, dto.symbols);
     client.leave(room);
     this.logger.log(`Client ${client.id} left room ${room} (unWatchOrderBookForSymbols)`);
+  }
+
+  @SubscribeMessage('watchOhlcv')
+  async handleWatchOhlcv(@MessageBody() dto: WatchOhlcvDto, @ConnectedSocket() client: Socket) {
+    const { room, started } = await this.ohlcvService.watchOhlcv(client.id, dto.exchangeId, dto.symbol, dto.timeframe);
+    if (started) {
+      client.join(room);
+      this.logger.log(`Client ${client.id} joined room ${room} (watchOhlcv)`);
+    } else {
+      client.emit('error', { message: 'No public exchange instance found.' });
+      this.logger.warn(`Client ${client.id} could not join room ${room} (watchOhlcv) - missing exchange instance`);
+    }
+  }
+
+  @SubscribeMessage('unWatchOhlcv')
+  async handleUnwatchOhlcv(@MessageBody() dto: WatchOhlcvDto, @ConnectedSocket() client: Socket) {
+    const room = await this.ohlcvService.unWatchOhlcv(client.id, dto.exchangeId, dto.symbol, dto.timeframe);
+    client.leave(room);
+    this.logger.log(`Client ${client.id} left room ${room} (unWatchOhlcv)`);
   }
 }

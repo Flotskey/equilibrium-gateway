@@ -129,8 +129,6 @@ export class WsPrivateOrderbookService {
       await exchangeWrapper.exchange.unWatchOrderBook(symbols[0]);
     } else if (symbols.length > 1 && exchangeWrapper.exchange.has['unWatchOrderBookForSymbols']) {
       await exchangeWrapper.exchange.unWatchOrderBookForSymbols(symbols);
-    } else {
-      await exchangeWrapper.exchange.close();
     }
   }
 }

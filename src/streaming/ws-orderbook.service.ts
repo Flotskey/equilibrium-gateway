@@ -7,9 +7,7 @@ import { ORDERBOOK_UPDATE_EVENT, ORDERBOOKS_UPDATE_EVENT } from './streaming-eve
 @Injectable()
 export class WsOrderbookService {
   private readonly logger = new Logger(WsOrderbookService.name);
-  // Map<roomKey, Set<clientId>>
   private subscribers = new Map<string, Set<string>>();
-  // Map<roomKey, Promise<void>>
   private watcherTasks = new Map<string, Promise<void>>();
 
   constructor(
@@ -17,12 +15,10 @@ export class WsOrderbookService {
     private readonly eventEmitter: EventEmitter2
   ) {}
 
-  // Helper to generate room key
   private getRoomKey(type: string, exchangeId: string, symbols: string[]): string {
     return `${type}:${exchangeId}:${symbols.sort().join(',')}`;
   }
 
-  // Single symbol
   async watchOrderBook(
     clientId: string,
     exchangeId: string,
@@ -47,7 +43,6 @@ export class WsOrderbookService {
     return room;
   }
 
-  // Multiple symbols (batch)
   async watchOrderBookForSymbols(
     clientId: string,
     exchangeId: string,
@@ -72,7 +67,6 @@ export class WsOrderbookService {
     return room;
   }
 
-  // Internal: add/remove subscriber
   private addSubscriber(room: string, clientId: string) {
     if (!this.subscribers.has(room)) this.subscribers.set(room, new Set());
     this.subscribers.get(room)!.add(clientId);
@@ -87,7 +81,6 @@ export class WsOrderbookService {
     }
   }
 
-  // Internal: start/stop watcher (now uses ExchangeInstanceService)
   private async startOrderbookWatcher(exchangeId: string, symbols: string[], room: string): Promise<void> {
     this.logger.log(`Starting orderbook watcher for room ${room}`);
     const exchange = await this.exchangeInstanceService.getOrCreatePublicExchange(exchangeId);
@@ -109,15 +102,13 @@ export class WsOrderbookService {
     }
   }
 
-  private async cleanupWatcher(exchangeWrapper: any, room: string, symbols: string[]) {
+  private async cleanupWatcher(exchange: any, room: string, symbols: string[]) {
     this.logger.log(`Stopped orderbook watcher for room ${room}`);
     this.watcherTasks.delete(room);
-    if (symbols.length === 1 && exchangeWrapper.exchange.has['unWatchOrderBook']) {
-      await exchangeWrapper.exchange.unWatchOrderBook(symbols[0]);
-    } else if (symbols.length > 1 && exchangeWrapper.exchange.has['unWatchOrderBookForSymbols']) {
-      await exchangeWrapper.exchange.unWatchOrderBookForSymbols(symbols);
-    } else {
-      await exchangeWrapper.exchange.close();
+    if (symbols.length === 1 && exchange.exchange.has['unWatchOrderBook']) {
+      await exchange.exchange.unWatchOrderBook(symbols[0]);
+    } else if (symbols.length > 1 && exchange.exchange.has['unWatchOrderBookForSymbols']) {
+      await exchange.exchange.unWatchOrderBookForSymbols(symbols);
     }
   }
 }

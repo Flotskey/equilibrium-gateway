@@ -10,3 +10,6 @@ export const ORDERBOOKS_UPDATE_EVENT = 'orderbooks.update';
 
 export const SOCKET_ORDERBOOK_EVENT = 'orderbook';
 export const SOCKET_ORDERBOOKS_EVENT = 'orderbooks';
+
+export const OHLCV_UPDATE_EVENT = 'ohlcv.update';
+export const SOCKET_OHLCV_EVENT = 'ohlcv';

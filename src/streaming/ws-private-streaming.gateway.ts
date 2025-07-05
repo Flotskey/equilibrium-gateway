@@ -3,7 +3,10 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { ConnectedSocket, MessageBody, SubscribeMessage, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { WebSocketJwtAuthGuard } from '../auth/ws-jwt-auth.guard';
-import { StreamingDto } from './dto/streaming.dto';
+import { WatchOrderBookDto } from './dto/watch-orderbook.dto';
+import { WatchOrderBooksDto } from './dto/watch-orderbooks.dto';
+import { WatchTickerDto } from './dto/watch-ticker.dto';
+import { WatchTickersDto } from './dto/watch-tickers.dto';
 import {
   ORDERBOOK_UPDATE_EVENT,
   ORDERBOOKS_UPDATE_EVENT,
@@ -52,7 +55,7 @@ export class WsPrivateStreamingGateway {
 
   // --- Ticker ---
   @SubscribeMessage('watchTicker')
-  async handleWatchTicker(@MessageBody() dto: StreamingDto, @ConnectedSocket() client: Socket & { user: any }) {
+  async handleWatchTicker(@MessageBody() dto: WatchTickerDto, @ConnectedSocket() client: Socket & { user: any }) {
     const { room, started } = await this.tickerService.watchTicker(
       client.id,
       client.user.userId,
@@ -70,13 +73,13 @@ export class WsPrivateStreamingGateway {
     }
   }
   @SubscribeMessage('unWatchTicker')
-  async handleUnwatchTicker(@MessageBody() dto: StreamingDto, @ConnectedSocket() client: Socket & { user: any }) {
+  async handleUnwatchTicker(@MessageBody() dto: WatchTickerDto, @ConnectedSocket() client: Socket & { user: any }) {
     const room = await this.tickerService.unWatchTicker(client.id, client.user.userId, dto.exchangeId, dto.symbol);
     client.leave(room);
     this.logger.log(`Client ${client.id} (user ${client.user.userId}) left room ${room} (unWatchTicker)`);
   }
   @SubscribeMessage('watchTickers')
-  async handleWatchTickers(@MessageBody() dto: StreamingDto, @ConnectedSocket() client: Socket & { user: any }) {
+  async handleWatchTickers(@MessageBody() dto: WatchTickersDto, @ConnectedSocket() client: Socket & { user: any }) {
     const { room, started } = await this.tickerService.watchTickers(
       client.id,
       client.user.userId,
@@ -94,7 +97,7 @@ export class WsPrivateStreamingGateway {
     }
   }
   @SubscribeMessage('unWatchTickers')
-  async handleUnwatchTickers(@MessageBody() dto: StreamingDto, @ConnectedSocket() client: Socket & { user: any }) {
+  async handleUnwatchTickers(@MessageBody() dto: WatchTickersDto, @ConnectedSocket() client: Socket & { user: any }) {
     const room = await this.tickerService.unWatchTickers(client.id, client.user.userId, dto.exchangeId, dto.symbols);
     client.leave(room);
     this.logger.log(`Client ${client.id} (user ${client.user.userId}) left room ${room} (unWatchTickers)`);
@@ -102,7 +105,7 @@ export class WsPrivateStreamingGateway {
 
   // --- Orderbook ---
   @SubscribeMessage('watchOrderBook')
-  async handleWatchOrderBook(@MessageBody() dto: StreamingDto, @ConnectedSocket() client: Socket & { user: any }) {
+  async handleWatchOrderBook(@MessageBody() dto: WatchOrderBookDto, @ConnectedSocket() client: Socket & { user: any }) {
     const { room, started } = await this.orderbookService.watchOrderBook(
       client.id,
       client.user.userId,
@@ -120,7 +123,10 @@ export class WsPrivateStreamingGateway {
     }
   }
   @SubscribeMessage('unWatchOrderBook')
-  async handleUnwatchOrderBook(@MessageBody() dto: StreamingDto, @ConnectedSocket() client: Socket & { user: any }) {
+  async handleUnwatchOrderBook(
+    @MessageBody() dto: WatchOrderBookDto,
+    @ConnectedSocket() client: Socket & { user: any }
+  ) {
     const room = await this.orderbookService.unWatchOrderBook(
       client.id,
       client.user.userId,
@@ -132,7 +138,7 @@ export class WsPrivateStreamingGateway {
   }
   @SubscribeMessage('watchOrderBookForSymbols')
   async handleWatchOrderBookForSymbols(
-    @MessageBody() dto: StreamingDto,
+    @MessageBody() dto: WatchOrderBooksDto,
     @ConnectedSocket() client: Socket & { user: any }
   ) {
     const { room, started } = await this.orderbookService.watchOrderBookForSymbols(
@@ -155,7 +161,7 @@ export class WsPrivateStreamingGateway {
   }
   @SubscribeMessage('unWatchOrderBookForSymbols')
   async handleUnwatchOrderBookForSymbols(
-    @MessageBody() dto: StreamingDto,
+    @MessageBody() dto: WatchOrderBooksDto,
     @ConnectedSocket() client: Socket & { user: any }
   ) {
     const room = await this.orderbookService.unWatchOrderBookForSymbols(

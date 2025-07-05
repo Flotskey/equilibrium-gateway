@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuthService } from '../auth/auth.service';
 import { ExchangeModule } from '../exchange/exchange.module';
+import { WsOhlcvService } from './ws-ohlcv.service';
 import { WsOrderbookService } from './ws-orderbook.service';
 import { WsPrivateOrderbookService } from './ws-private-orderbook.service';
 import { WsPrivateStreamingGateway } from './ws-private-streaming.gateway';
@@ -17,7 +18,8 @@ import { WsTickerService } from './ws-ticker.service';
     WsPrivateStreamingGateway,
     WsPrivateTickerService,
     WsPrivateOrderbookService,
-    AuthService
+    AuthService,
+    WsOhlcvService
   ]
 })
 export class WsStreamingModule {}
