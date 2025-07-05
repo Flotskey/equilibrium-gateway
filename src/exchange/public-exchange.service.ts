@@ -28,8 +28,12 @@ export class PublicExchangeService {
 
   async getTimeframes(exchangeId: string): Promise<any> {
     const exchangeWrapper = await this.getOrCreateExchange(exchangeId);
-    await exchangeWrapper.loadMarkets();
     return exchangeWrapper.exchange.timeframes;
+  }
+
+  async getOhlcv(exchangeId: string, symbol: string, timeframe: string, limit?: number, since?: number): Promise<any> {
+    const exchangeWrapper = await this.getOrCreateExchange(exchangeId);
+    return exchangeWrapper.exchange.fetchOHLCV(symbol, timeframe, since, limit);
   }
 
   private async getOrCreateExchange(exchangeId: string): Promise<ExchangeWrapper> {

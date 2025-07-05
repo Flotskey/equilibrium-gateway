@@ -142,19 +142,23 @@ export class WsStreamingGateway {
   @SubscribeMessage('watchOhlcv')
   async handleWatchOhlcv(@MessageBody() dto: WatchOhlcvDto, @ConnectedSocket() client: Socket) {
     const { room, started } = await this.ohlcvService.watchOhlcv(client.id, dto.exchangeId, dto.symbol, dto.timeframe);
+    const clientRoom = `${room}:${client.id}:${dto.timeframe}`;
     if (started) {
-      client.join(room);
-      this.logger.log(`Client ${client.id} joined room ${room} (watchOhlcv)`);
+      client.join(clientRoom);
+      this.logger.log(`Client ${client.id} joined room ${clientRoom} (watchOhlcv)`);
     } else {
       client.emit('error', { message: 'No public exchange instance found.' });
-      this.logger.warn(`Client ${client.id} could not join room ${room} (watchOhlcv) - missing exchange instance`);
+      this.logger.warn(
+        `Client ${client.id} could not join room ${clientRoom} (watchOhlcv) - missing exchange instance`
+      );
     }
   }
 
   @SubscribeMessage('unWatchOhlcv')
   async handleUnwatchOhlcv(@MessageBody() dto: WatchOhlcvDto, @ConnectedSocket() client: Socket) {
     const room = await this.ohlcvService.unWatchOhlcv(client.id, dto.exchangeId, dto.symbol, dto.timeframe);
-    client.leave(room);
-    this.logger.log(`Client ${client.id} left room ${room} (unWatchOhlcv)`);
+    const clientRoom = `${room}:${client.id}:${dto.timeframe}`;
+    client.leave(clientRoom);
+    this.logger.log(`Client ${client.id} left room ${clientRoom} (unWatchOhlcv)`);
   }
 }
