@@ -1,4 +1,5 @@
 import { Controller, Get, Logger, Param, Query } from '@nestjs/common';
+import { ApiQuery } from '@nestjs/swagger';
 import { PublicExchangeService } from './public-exchange.service';
 
 @Controller('exchanges/public/:exchangeId')
@@ -18,6 +19,10 @@ export class PublicExchangeController {
   }
 
   @Get('ohlcv')
+  @ApiQuery({ name: 'symbol', required: true, type: String })
+  @ApiQuery({ name: 'timeframe', required: true, type: String })
+  @ApiQuery({ name: 'limit', required: false, type: String })
+  @ApiQuery({ name: 'since', required: false, type: String })
   async getOhlcv(
     @Param('exchangeId') exchangeId: string,
     @Query('symbol') symbol: string,
