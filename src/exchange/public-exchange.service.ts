@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import * as ccxt from 'ccxt';
 import { Dictionary, OHLCV } from 'ccxt';
-import { CcxtRequiredCredentials } from 'src/models/ccxt';
+import { CcxtMarket, CcxtRequiredCredentials } from 'src/models/ccxt';
 import { SessionStore } from 'src/session-store/session-store.interface';
 import { ShortTickerDto } from './dto/short-ticker.dto';
 import { ExchangeFactory } from './exchange.factory';
@@ -62,6 +62,11 @@ export class PublicExchangeService {
         } as ShortTickerDto;
       })
       .filter((ticker) => ticker.last != undefined);
+  }
+
+  async getMarket(exchangeId: string, symbol: string): Promise<CcxtMarket> {
+    const exchangeWrapper = await this.getOrCreateExchange(exchangeId);
+    return exchangeWrapper.exchange.markets[symbol];
   }
 
   getExchangesList() {

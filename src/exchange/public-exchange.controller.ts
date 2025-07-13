@@ -46,6 +46,11 @@ export class PublicExchangeController {
     return this.publicExchangeService.getShortTickers(exchangeId);
   }
 
+  @Get(':exchangeId/market/:symbol')
+  getMarket(@Param('exchangeId') exchangeId: string, @Param('symbol') symbol: string) {
+    return this.publicExchangeService.getMarket(exchangeId, symbol);
+  }
+
   @Get('/list')
   getExchangesList(): Record<string, any> {
     return this.publicExchangeService.getExchangesList();
