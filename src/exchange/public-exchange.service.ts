@@ -6,8 +6,11 @@ import {
   Logger,
   NotFoundException
 } from '@nestjs/common';
+import * as ccxt from 'ccxt';
+import { Dictionary, OHLCV } from 'ccxt';
 import { CcxtRequiredCredentials } from 'src/models/ccxt';
 import { SessionStore } from 'src/session-store/session-store.interface';
+import { ShortTickerDto } from './dto/short-ticker.dto';
 import { ExchangeFactory } from './exchange.factory';
 import { ExchangeWrapper } from './wrappers/exchange-wrapper.interface';
 
@@ -26,14 +29,43 @@ export class PublicExchangeService {
     return exchange.requiredCredentials;
   }
 
-  async getTimeframes(exchangeId: string): Promise<any> {
+  async getTimeframes(exchangeId: string): Promise<Dictionary<string | number>> {
     const exchangeWrapper = await this.getOrCreateExchange(exchangeId);
     return exchangeWrapper.exchange.timeframes;
   }
 
-  async getOhlcv(exchangeId: string, symbol: string, timeframe: string, limit?: number, since?: number): Promise<any> {
+  async getOhlcv(
+    exchangeId: string,
+    symbol: string,
+    timeframe: string,
+    limit?: number,
+    since?: number
+  ): Promise<OHLCV[]> {
     const exchangeWrapper = await this.getOrCreateExchange(exchangeId);
     return exchangeWrapper.exchange.fetchOHLCV(symbol, timeframe, since, limit);
+  }
+
+  async getMarkets(exchangeId: string) {
+    const exchangeWrapper = await this.getOrCreateExchange(exchangeId);
+    return exchangeWrapper.exchange.markets;
+  }
+
+  async getShortTickers(exchangeId: string): Promise<ShortTickerDto[]> {
+    const exchangeWrapper = await this.getOrCreateExchange(exchangeId);
+    var tickers = await exchangeWrapper.exchange.fetchTickers();
+    return Object.keys(tickers)
+      .map((key) => {
+        return {
+          symbol: key,
+          last: tickers[key].last,
+          change: tickers[key].change
+        } as ShortTickerDto;
+      })
+      .filter((ticker) => ticker.last != undefined);
+  }
+
+  getExchangesList() {
+    return ccxt.exchanges;
   }
 
   private async getOrCreateExchange(exchangeId: string): Promise<ExchangeWrapper> {

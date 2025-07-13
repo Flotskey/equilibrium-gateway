@@ -8,6 +8,9 @@ async function bootstrap() {
     snapshot: true
   });
 
+  // Allow any origin for CORS
+  app.enableCors({ origin: '*' });
+
   app.useGlobalFilters(new GlobalExceptionFilter());
 
   const config = new DocumentBuilder()
