@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { OrderBook, OrderBooks } from 'ccxt';
 import { ExchangeInstanceService } from '../exchange/exchange-instance.service';
+import { delay } from '../utils/delay';
 import { ORDERBOOK_UPDATE_EVENT, ORDERBOOKS_UPDATE_EVENT } from './streaming-events.constants';
 
 @Injectable()
@@ -94,6 +95,7 @@ export class WsOrderbookService {
           orderbooks = await exchange.exchange.watchOrderBookForSymbols(symbols, 25);
           this.eventEmitter.emit(ORDERBOOKS_UPDATE_EVENT, { room, data: orderbooks });
         }
+        await delay(1000);
       }
     } catch (err) {
       this.logger.error(`Error in orderbook watcher for room ${room}: ${err.message}`, err.stack);

@@ -42,7 +42,7 @@ export class PublicExchangeService {
     since?: number
   ): Promise<OHLCV[]> {
     const exchangeWrapper = await this.getOrCreateExchange(exchangeId);
-    return exchangeWrapper.exchange.fetchOHLCV(symbol, timeframe, since, limit);
+    return exchangeWrapper.exchange.fetchOHLCV(symbol, timeframe, since, limit ?? 100);
   }
 
   async getMarkets(exchangeId: string) {
@@ -57,6 +57,8 @@ export class PublicExchangeService {
       .map((key) => {
         return {
           symbol: key,
+          high: tickers[key].high,
+          low: tickers[key].low,
           last: tickers[key].last,
           change: tickers[key].change
         } as ShortTickerDto;
