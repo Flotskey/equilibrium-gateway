@@ -10,6 +10,7 @@ import * as ccxt from 'ccxt';
 import { Dictionary, OHLCV } from 'ccxt';
 import { CcxtMarket, CcxtRequiredCredentials } from 'src/models/ccxt';
 import { SessionStore } from 'src/session-store/session-store.interface';
+import { ShortMarketDto } from './dto/short-market.dto';
 import { ShortTickerDto } from './dto/short-ticker.dto';
 import { ExchangeFactory } from './exchange.factory';
 import { ExchangeWrapper } from './wrappers/exchange-wrapper.interface';
@@ -45,9 +46,17 @@ export class PublicExchangeService {
     return exchangeWrapper.exchange.fetchOHLCV(symbol, timeframe, since, limit ?? 100);
   }
 
-  async getMarkets(exchangeId: string) {
+  async getShortMarkets(exchangeId: string): Promise<ShortMarketDto[]> {
     const exchangeWrapper = await this.getOrCreateExchange(exchangeId);
-    return exchangeWrapper.exchange.markets;
+    const markets = exchangeWrapper.exchange.markets;
+    return Object.keys(markets)
+      .map((key) => {
+        return {
+          symbol: key,
+          active: markets[key].active
+        } as ShortMarketDto;
+      })
+      .filter((market) => market.active);
   }
 
   async getShortTickers(exchangeId: string, params?: Record<string, any>): Promise<ShortTickerDto[]> {

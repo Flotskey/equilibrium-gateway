@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Logger, Param, Post, Query } from '@nestjs/common';
 import { ApiBody, ApiOkResponse, ApiQuery } from '@nestjs/swagger';
+import { ShortMarketDto } from './dto/short-market.dto';
 import { ShortTickerDto } from './dto/short-ticker.dto';
 import { PublicExchangeService } from './public-exchange.service';
 
@@ -45,6 +46,12 @@ export class PublicExchangeController {
   @ApiBody({ type: Object, required: false })
   getShortTickers(@Param('exchangeId') exchangeId: string, @Body() params?: Record<string, any>) {
     return this.publicExchangeService.getShortTickers(exchangeId, params);
+  }
+
+  @Get(':exchangeId/short-markets')
+  @ApiOkResponse({ type: ShortMarketDto, isArray: true })
+  getShortMarkets(@Param('exchangeId') exchangeId: string) {
+    return this.publicExchangeService.getShortMarkets(exchangeId);
   }
 
   @Get(':exchangeId/market/:symbol')
