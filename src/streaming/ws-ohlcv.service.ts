@@ -187,7 +187,7 @@ export class WsOhlcvService {
             });
           }
         }
-        await this.delay(1000); // Small delay to avoid tight loop
+        await this.delay(1000);
       }
     } catch (err) {
       this.logger.error(`Error in OHLCV watcher for room ${room}: ${err.message}`, err.stack);

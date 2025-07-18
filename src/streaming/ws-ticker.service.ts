@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Ticker, Tickers } from 'ccxt';
+import { delay } from 'src/utils/delay';
 import { ExchangeInstanceService } from '../exchange/exchange-instance.service';
 import { TICKER_UPDATE_EVENT, TICKERS_UPDATE_EVENT } from './streaming-events.constants';
 
@@ -93,6 +94,8 @@ export class WsTickerService {
           tickers = await exchangeWrapper.exchange.watchTickers(symbols);
           this.eventEmitter.emit(TICKERS_UPDATE_EVENT, { room, data: tickers });
         }
+
+        await delay(1000);
       }
     } catch (err) {
       this.logger.error(`Error in ticker watcher for room ${room}: ${err.message}`, err.stack);

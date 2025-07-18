@@ -89,10 +89,10 @@ export class WsOrderbookService {
       while (this.subscribers.has(room)) {
         let orderbooks: OrderBook | OrderBooks;
         if (symbols.length === 1) {
-          orderbooks = await exchange.exchange.watchOrderBook(symbols[0], 25);
+          orderbooks = await exchange.exchange.watchOrderBook(symbols[0]);
           this.eventEmitter.emit(ORDERBOOK_UPDATE_EVENT, { room, data: orderbooks });
         } else {
-          orderbooks = await exchange.exchange.watchOrderBookForSymbols(symbols, 25);
+          orderbooks = await exchange.exchange.watchOrderBookForSymbols(symbols);
           this.eventEmitter.emit(ORDERBOOKS_UPDATE_EVENT, { room, data: orderbooks });
         }
         await delay(1000);

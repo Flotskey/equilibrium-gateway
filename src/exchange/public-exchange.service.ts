@@ -50,9 +50,11 @@ export class PublicExchangeService {
     return exchangeWrapper.exchange.markets;
   }
 
-  async getShortTickers(exchangeId: string): Promise<ShortTickerDto[]> {
+  async getShortTickers(exchangeId: string, params?: Record<string, any>): Promise<ShortTickerDto[]> {
     const exchangeWrapper = await this.getOrCreateExchange(exchangeId);
-    var tickers = await exchangeWrapper.exchange.fetchTickers();
+    var tickers = params
+      ? await exchangeWrapper.exchange.fetchTickers(undefined, params)
+      : await exchangeWrapper.exchange.fetchTickers();
     return Object.keys(tickers)
       .map((key) => {
         return {

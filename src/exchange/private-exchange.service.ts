@@ -32,15 +32,16 @@ export class PrivateExchangeService {
     creds: ExchangeCredentialsDto
   ): Promise<ExchangeWrapper> {
     const key = this.getSessionKey(userId, exchangeId);
-    let exchange = await this.sessionStore.get(key);
+    let exchangeWrapper = await this.sessionStore.get(key);
 
-    if (!exchange) {
-      exchange = this.exchangeFactory.create(exchangeId, creds);
-      await exchange.loadMarkets();
-      await this.sessionStore.set(key, exchange);
+    if (!exchangeWrapper) {
+      exchangeWrapper = this.exchangeFactory.create(exchangeId, creds);
+      exchangeWrapper.exchange.enableRateLimit = false;
+      await exchangeWrapper.exchange.loadMarkets();
+      await this.sessionStore.set(key, exchangeWrapper);
     }
 
-    return exchange;
+    return exchangeWrapper;
   }
 
   private async getExchange(userId: string, exchangeId: string): Promise<ExchangeWrapper | undefined> {
