@@ -1,5 +1,5 @@
 import { Exchange } from 'ccxt';
-import { CcxtBalance, CcxtMarket, CcxtOrder, CcxtRequiredCredentials } from 'src/models/ccxt';
+import { CcxtMarket, CcxtOrder, CcxtRequiredCredentials } from 'src/models/ccxt';
 import { OrderRequestDto } from '../dto/create-orders.dto';
 
 export interface ExchangeWrapper {
@@ -29,9 +29,6 @@ export interface ExchangeWrapper {
   ): Promise<CcxtOrder>;
   cancelOrder(id: string, symbol?: string, params?: Record<string, any>): Promise<Record<string, any>>;
   fetchOrder(id: string, symbol?: string, params?: Record<string, any>): Promise<CcxtOrder>;
-
-  // Account operations
-  fetchBalance(params?: Record<string, any>): Promise<CcxtBalance>;
 
   // Exchange info
   readonly id: string;

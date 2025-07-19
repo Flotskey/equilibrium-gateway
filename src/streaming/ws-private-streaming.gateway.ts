@@ -3,22 +3,38 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { ConnectedSocket, MessageBody, SubscribeMessage, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { WebSocketJwtAuthGuard } from '../auth/ws-jwt-auth.guard';
+import { WatchBalanceDto } from './dto/watch-balance.dto';
+import { WatchMyTradesDto } from './dto/watch-my-trades.dto';
 import { WatchOrderBookDto } from './dto/watch-orderbook.dto';
 import { WatchOrderBooksDto } from './dto/watch-orderbooks.dto';
+import { WatchOrdersDto } from './dto/watch-orders.dto';
+import { WatchPositionsDto } from './dto/watch-positions.dto';
 import { WatchTickerDto } from './dto/watch-ticker.dto';
 import { WatchTickersDto } from './dto/watch-tickers.dto';
 import {
+  BALANCE_UPDATE_EVENT,
+  MY_TRADES_UPDATE_EVENT,
   ORDERBOOK_UPDATE_EVENT,
   ORDERBOOKS_UPDATE_EVENT,
+  ORDERS_UPDATE_EVENT,
+  POSITIONS_UPDATE_EVENT,
+  SOCKET_BALANCE_EVENT,
+  SOCKET_MY_TRADES_EVENT,
   SOCKET_ORDERBOOK_EVENT,
   SOCKET_ORDERBOOKS_EVENT,
+  SOCKET_ORDERS_EVENT,
+  SOCKET_POSITIONS_EVENT,
   SOCKET_TICKER_EVENT,
   SOCKET_TICKERS_EVENT,
   TICKER_UPDATE_EVENT,
   TICKERS_UPDATE_EVENT
 } from './streaming-events.constants';
+import { WsPrivateBalanceService } from './ws-private-balance.service';
 import { WsPrivateOrderbookService } from './ws-private-orderbook.service';
+import { WsPrivateOrdersService } from './ws-private-orders.service';
+import { WsPrivatePositionsService } from './ws-private-positions.service';
 import { WsPrivateTickerService } from './ws-private-ticker.service';
+import { WsPrivateTradesService } from './ws-private-trades.service';
 
 @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
 @WebSocketGateway({ cors: { origin: '*' }, namespace: 'private-streaming' })
@@ -30,7 +46,11 @@ export class WsPrivateStreamingGateway {
 
   constructor(
     private readonly tickerService: WsPrivateTickerService,
-    private readonly orderbookService: WsPrivateOrderbookService
+    private readonly orderbookService: WsPrivateOrderbookService,
+    private readonly balanceService: WsPrivateBalanceService,
+    private readonly ordersService: WsPrivateOrdersService,
+    private readonly tradesService: WsPrivateTradesService,
+    private readonly positionsService: WsPrivatePositionsService
   ) {}
 
   @OnEvent(TICKER_UPDATE_EVENT)
@@ -51,6 +71,26 @@ export class WsPrivateStreamingGateway {
   @OnEvent(ORDERBOOKS_UPDATE_EVENT)
   handleOrderbooksUpdate({ room, data }: { room: string; data: any }) {
     this.server.to(room).emit(SOCKET_ORDERBOOKS_EVENT, data);
+  }
+
+  @OnEvent(BALANCE_UPDATE_EVENT)
+  handleBalanceUpdate({ room, data }: { room: string; data: any }) {
+    this.server.to(room).emit(SOCKET_BALANCE_EVENT, data);
+  }
+
+  @OnEvent(ORDERS_UPDATE_EVENT)
+  handleOrdersUpdate({ room, data }: { room: string; data: any }) {
+    this.server.to(room).emit(SOCKET_ORDERS_EVENT, data);
+  }
+
+  @OnEvent(MY_TRADES_UPDATE_EVENT)
+  handleMyTradesUpdate({ room, data }: { room: string; data: any }) {
+    this.server.to(room).emit(SOCKET_MY_TRADES_EVENT, data);
+  }
+
+  @OnEvent(POSITIONS_UPDATE_EVENT)
+  handlePositionsUpdate({ room, data }: { room: string; data: any }) {
+    this.server.to(room).emit(SOCKET_POSITIONS_EVENT, data);
   }
 
   // --- Ticker ---
@@ -172,5 +212,112 @@ export class WsPrivateStreamingGateway {
     );
     client.leave(room);
     this.logger.log(`Client ${client.id} (user ${client.user.userId}) left room ${room} (unWatchOrderBookForSymbols)`);
+  }
+
+  // --- Balance ---
+  @SubscribeMessage('watchBalance')
+  async handleWatchBalance(@MessageBody() dto: WatchBalanceDto, @ConnectedSocket() client: Socket & { user: any }) {
+    const { room, started } = await this.balanceService.watchBalance(client.id, client.user.userId, dto.exchangeId);
+    if (started) {
+      client.join(room);
+      this.logger.log(`Client ${client.id} (user ${client.user.userId}) joined room ${room} (watchBalance)`);
+    } else {
+      client.emit('error', { message: 'No private exchange instance found. Please call createConnection first.' });
+      this.logger.warn(
+        `Client ${client.id} (user ${client.user.userId}) could not join room ${room} (watchBalance) - missing exchange instance`
+      );
+    }
+  }
+  @SubscribeMessage('unWatchBalance')
+  async handleUnwatchBalance(@MessageBody() dto: WatchBalanceDto, @ConnectedSocket() client: Socket & { user: any }) {
+    const room = await this.balanceService.unWatchBalance(client.id, client.user.userId, dto.exchangeId);
+    client.leave(room);
+    this.logger.log(`Client ${client.id} (user ${client.user.userId}) left room ${room} (unWatchBalance)`);
+  }
+
+  // --- Orders ---
+  @SubscribeMessage('watchOrders')
+  async handleWatchOrders(@MessageBody() dto: WatchOrdersDto, @ConnectedSocket() client: Socket & { user: any }) {
+    const { room, started } = await this.ordersService.watchOrders(
+      client.id,
+      client.user.userId,
+      dto.exchangeId,
+      dto.symbol
+    );
+    if (started) {
+      client.join(room);
+      this.logger.log(`Client ${client.id} (user ${client.user.userId}) joined room ${room} (watchOrders)`);
+    } else {
+      client.emit('error', { message: 'No private exchange instance found. Please call createConnection first.' });
+      this.logger.warn(
+        `Client ${client.id} (user ${client.user.userId}) could not join room ${room} (watchOrders) - missing exchange instance`
+      );
+    }
+  }
+  @SubscribeMessage('unWatchOrders')
+  async handleUnwatchOrders(@MessageBody() dto: WatchOrdersDto, @ConnectedSocket() client: Socket & { user: any }) {
+    const room = await this.ordersService.unWatchOrders(client.id, client.user.userId, dto.exchangeId, dto.symbol);
+    client.leave(room);
+    this.logger.log(`Client ${client.id} (user ${client.user.userId}) left room ${room} (unWatchOrders)`);
+  }
+
+  // --- My Trades ---
+  @SubscribeMessage('watchMyTrades')
+  async handleWatchMyTrades(@MessageBody() dto: WatchMyTradesDto, @ConnectedSocket() client: Socket & { user: any }) {
+    const { room, started } = await this.tradesService.watchMyTrades(
+      client.id,
+      client.user.userId,
+      dto.exchangeId,
+      dto.symbol
+    );
+    if (started) {
+      client.join(room);
+      this.logger.log(`Client ${client.id} (user ${client.user.userId}) joined room ${room} (watchMyTrades)`);
+    } else {
+      client.emit('error', { message: 'No private exchange instance found. Please call createConnection first.' });
+      this.logger.warn(
+        `Client ${client.id} (user ${client.user.userId}) could not join room ${room} (watchMyTrades) - missing exchange instance`
+      );
+    }
+  }
+  @SubscribeMessage('unWatchMyTrades')
+  async handleUnwatchMyTrades(@MessageBody() dto: WatchMyTradesDto, @ConnectedSocket() client: Socket & { user: any }) {
+    const room = await this.tradesService.unWatchMyTrades(client.id, client.user.userId, dto.exchangeId, dto.symbol);
+    client.leave(room);
+    this.logger.log(`Client ${client.id} (user ${client.user.userId}) left room ${room} (unWatchMyTrades)`);
+  }
+
+  // --- Positions ---
+  @SubscribeMessage('watchPositions')
+  async handleWatchPositions(@MessageBody() dto: WatchPositionsDto, @ConnectedSocket() client: Socket & { user: any }) {
+    const { room, started } = await this.positionsService.watchPositions(
+      client.id,
+      client.user.userId,
+      dto.exchangeId,
+      dto.symbol
+    );
+    if (started) {
+      client.join(room);
+      this.logger.log(`Client ${client.id} (user ${client.user.userId}) joined room ${room} (watchPositions)`);
+    } else {
+      client.emit('error', { message: 'No private exchange instance found. Please call createConnection first.' });
+      this.logger.warn(
+        `Client ${client.id} (user ${client.user.userId}) could not join room ${room} (watchPositions) - missing exchange instance`
+      );
+    }
+  }
+  @SubscribeMessage('unWatchPositions')
+  async handleUnwatchPositions(
+    @MessageBody() dto: WatchPositionsDto,
+    @ConnectedSocket() client: Socket & { user: any }
+  ) {
+    const room = await this.positionsService.unWatchPositions(
+      client.id,
+      client.user.userId,
+      dto.exchangeId,
+      dto.symbol
+    );
+    client.leave(room);
+    this.logger.log(`Client ${client.id} (user ${client.user.userId}) left room ${room} (unWatchPositions)`);
   }
 }

@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Ticker, Tickers } from 'ccxt';
-import { delay } from 'src/utils/delay';
 import { ExchangeInstanceService } from '../exchange/exchange-instance.service';
 import { TICKER_UPDATE_EVENT, TICKERS_UPDATE_EVENT } from './streaming-events.constants';
 
@@ -84,8 +83,19 @@ export class WsTickerService {
   private async startTickerWatcher(exchangeId: string, symbols: string[], room: string): Promise<void> {
     this.logger.log(`Starting ticker watcher for room ${room}`);
     const exchangeWrapper = await this.exchangeInstanceService.getOrCreatePublicExchange(exchangeId);
-    try {
-      while (this.subscribers.has(room)) {
+
+    const interval = setInterval(async () => {
+      if (!this.subscribers.has(room)) {
+        clearInterval(interval);
+        this.logger.log(`Stopped ticker watcher for room ${room}`);
+        this.watcherTasks.delete(room);
+        if (exchangeWrapper.exchange.has['unWatchTickers']) {
+          await exchangeWrapper.exchange.unWatchTickers(symbols);
+        }
+        return;
+      }
+
+      try {
         let tickers: Tickers | Ticker;
         if (symbols.length === 1) {
           tickers = await exchangeWrapper.exchange.watchTicker(symbols[0]);
@@ -94,17 +104,12 @@ export class WsTickerService {
           tickers = await exchangeWrapper.exchange.watchTickers(symbols);
           this.eventEmitter.emit(TICKERS_UPDATE_EVENT, { room, data: tickers });
         }
+      } catch (err) {
+        this.logger.error(`Error in ticker watcher for room ${room}: ${err.message}`, err.stack);
+      }
+    }, 1000);
 
-        await delay(1000);
-      }
-    } catch (err) {
-      this.logger.error(`Error in ticker watcher for room ${room}: ${err.message}`, err.stack);
-    } finally {
-      this.logger.log(`Stopped ticker watcher for room ${room}`);
-      this.watcherTasks.delete(room);
-      if (exchangeWrapper.exchange.has['unWatchTickers']) {
-        await exchangeWrapper.exchange.unWatchTickers(symbols);
-      }
-    }
+    // Store the interval ID for cleanup
+    this.watcherTasks.set(room, Promise.resolve());
   }
 }

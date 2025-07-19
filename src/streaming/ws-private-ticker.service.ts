@@ -4,6 +4,8 @@ import { Ticker, Tickers } from 'ccxt';
 import { ExchangeInstanceService } from '../exchange/exchange-instance.service';
 import { TICKER_UPDATE_EVENT, TICKERS_UPDATE_EVENT } from './streaming-events.constants';
 
+// !!! Potentially deprecated !!!
+
 @Injectable()
 export class WsPrivateTickerService {
   private readonly logger = new Logger(WsPrivateTickerService.name);
@@ -94,8 +96,19 @@ export class WsPrivateTickerService {
       this.watcherTasks.delete(room);
       return;
     }
-    try {
-      while (this.subscribers.has(room)) {
+
+    const interval = setInterval(async () => {
+      if (!this.subscribers.has(room)) {
+        clearInterval(interval);
+        this.logger.log(`Stopped private ticker watcher for room ${room}`);
+        this.watcherTasks.delete(room);
+        if (exchangeWrapper.exchange.has['unWatchTickers']) {
+          await exchangeWrapper.exchange.unWatchTickers(symbols);
+        }
+        return;
+      }
+
+      try {
         let tickers: Tickers | Ticker;
         if (symbols.length === 1) {
           tickers = await exchangeWrapper.exchange.watchTicker(symbols[0]);
@@ -104,15 +117,12 @@ export class WsPrivateTickerService {
           tickers = await exchangeWrapper.exchange.watchTickers(symbols);
           this.eventEmitter.emit(TICKERS_UPDATE_EVENT, { room, data: tickers });
         }
+      } catch (err) {
+        this.logger.error(`Error in private ticker watcher for room ${room}: ${err.message}`, err.stack);
       }
-    } catch (err) {
-      this.logger.error(`Error in private ticker watcher for room ${room}: ${err.message}`, err.stack);
-    } finally {
-      this.logger.log(`Stopped private ticker watcher for room ${room}`);
-      this.watcherTasks.delete(room);
-      if (exchangeWrapper.exchange.has['unWatchTickers']) {
-        await exchangeWrapper.exchange.unWatchTickers(symbols);
-      }
-    }
+    }, 1000);
+
+    // Store the interval ID for cleanup
+    this.watcherTasks.set(room, Promise.resolve());
   }
 }

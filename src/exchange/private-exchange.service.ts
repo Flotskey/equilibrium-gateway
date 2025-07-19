@@ -36,7 +36,6 @@ export class PrivateExchangeService {
 
     if (!exchangeWrapper) {
       exchangeWrapper = this.exchangeFactory.create(exchangeId, creds);
-      exchangeWrapper.exchange.enableRateLimit = false;
       await exchangeWrapper.exchange.loadMarkets();
       await this.sessionStore.set(key, exchangeWrapper);
     }
@@ -49,9 +48,9 @@ export class PrivateExchangeService {
   }
 
   async createConnection(dto: CreateConnectionDto): Promise<void> {
-    const exchange = await this.getOrCreateExchange(dto.userId, dto.exchangeId, dto.credentials);
+    const exchangeWrapper = await this.getOrCreateExchange(dto.userId, dto.exchangeId, dto.credentials);
     // test the connection by fetching the balance
-    await exchange.fetchBalance();
+    await exchangeWrapper.exchange.fetchBalance();
   }
 
   async removeConnection(dto: RemoveConnectionDto): Promise<void> {

@@ -4,6 +4,8 @@ import { OrderBook, OrderBooks } from 'ccxt';
 import { ExchangeInstanceService } from '../exchange/exchange-instance.service';
 import { ORDERBOOK_UPDATE_EVENT, ORDERBOOKS_UPDATE_EVENT } from './streaming-events.constants';
 
+// !!! Potentially deprecated !!!
+
 @Injectable()
 export class WsPrivateOrderbookService {
   private readonly logger = new Logger(WsPrivateOrderbookService.name);
@@ -104,8 +106,15 @@ export class WsPrivateOrderbookService {
       this.watcherTasks.delete(room);
       return;
     }
-    try {
-      while (this.subscribers.has(room)) {
+
+    const interval = setInterval(async () => {
+      if (!this.subscribers.has(room)) {
+        clearInterval(interval);
+        await this.cleanupWatcher(exchange, room, symbols);
+        return;
+      }
+
+      try {
         let orderbooks: OrderBook | OrderBooks;
         if (symbols.length === 1) {
           orderbooks = await exchange.exchange.watchOrderBook(symbols[0]);
@@ -114,12 +123,13 @@ export class WsPrivateOrderbookService {
           orderbooks = await exchange.exchange.watchOrderBookForSymbols(symbols);
           this.eventEmitter.emit(ORDERBOOKS_UPDATE_EVENT, { room, data: orderbooks });
         }
+      } catch (err) {
+        this.logger.error(`Error in private orderbook watcher for room ${room}: ${err.message}`, err.stack);
       }
-    } catch (err) {
-      this.logger.error(`Error in private orderbook watcher for room ${room}: ${err.message}`, err.stack);
-    } finally {
-      await this.cleanupWatcher(exchange, room, symbols);
-    }
+    }, 1000);
+
+    // Store the interval ID for cleanup
+    this.watcherTasks.set(room, Promise.resolve());
   }
 
   private async cleanupWatcher(exchangeWrapper: any, room: string, symbols: string[]) {

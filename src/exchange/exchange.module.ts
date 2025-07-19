@@ -24,7 +24,7 @@ import { PublicExchangeService } from './public-exchange.service';
     },
     {
       provide: 'PrivateSessionStore',
-      useFactory: () => new InMemorySessionStore(20)
+      useFactory: () => new InMemorySessionStore(6)
     },
     ExchangeInstanceService
   ],

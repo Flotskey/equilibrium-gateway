@@ -49,7 +49,7 @@ export class CcxtExchangeWrapper implements ExchangeWrapper {
     params?: Record<string, any>
   ): Promise<CcxtOrder> {
     const order = await this.exchange.createOrder(symbol, type, side, amount, price, params);
-    return order as CcxtOrder;
+    return order as unknown as CcxtOrder;
   }
 
   async createOrders(orders: OrderRequestDto[]): Promise<CcxtOrder[]> {
@@ -57,7 +57,7 @@ export class CcxtExchangeWrapper implements ExchangeWrapper {
       throw new Error(`Exchange '${this.exchange.id}' does not support batch order creation`);
     }
     const createdOrders = await this.exchange.createOrders(orders);
-    return createdOrders as CcxtOrder[];
+    return createdOrders as unknown as CcxtOrder[];
   }
 
   async editOrder(
@@ -70,7 +70,7 @@ export class CcxtExchangeWrapper implements ExchangeWrapper {
     params?: Record<string, any>
   ): Promise<CcxtOrder> {
     const order = await this.exchange.editOrder(id, symbol, type, side, amount, price, params);
-    return order as CcxtOrder;
+    return order as unknown as CcxtOrder;
   }
 
   async cancelOrder(id: string, symbol?: string, params?: Record<string, any>): Promise<Record<string, any>> {
@@ -79,7 +79,7 @@ export class CcxtExchangeWrapper implements ExchangeWrapper {
 
   async fetchOrder(id: string, symbol?: string, params?: Record<string, any>): Promise<CcxtOrder> {
     const order = await this.exchange.fetchOrder(id, symbol, params);
-    return order as CcxtOrder;
+    return order as unknown as CcxtOrder;
   }
 
   async fetchBalance(params?: Record<string, any>): Promise<CcxtBalance> {

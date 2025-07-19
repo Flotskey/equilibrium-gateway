@@ -1,9 +1,23 @@
-import { Trade } from 'ccxt';
-
 export interface CcxtFee {
   currency: string;
   cost: number;
   rate?: number;
+}
+
+export interface CcxtTrade {
+  info: any;
+  amount: number;
+  datetime: number;
+  id: string;
+  order: string;
+  price: number;
+  timestamp: number;
+  type: string;
+  side: 'buy' | 'sell' | string;
+  symbol: string;
+  takerOrMaker: 'taker' | 'maker' | string;
+  cost: number;
+  fee: CcxtFee;
 }
 
 export interface CcxtOrder {
@@ -23,7 +37,7 @@ export interface CcxtOrder {
   filled: number;
   remaining: number;
   cost: number;
-  trades?: Trade[];
+  trades?: CcxtTrade[];
   fee?: CcxtFee;
   info: any;
 }

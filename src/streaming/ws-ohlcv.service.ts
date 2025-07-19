@@ -135,21 +135,33 @@ export class WsOhlcvService {
   ): Promise<void> {
     this.logger.log(`Starting OHLCV watcher for room ${room}`);
     const r = this.rooms.get(room)!;
-    try {
-      while (this.rooms.has(room) && r.subscribers.size > 0) {
+
+    const interval = setInterval(async () => {
+      if (!this.rooms.has(room) || r.subscribers.size === 0) {
+        clearInterval(interval);
+        this.logger.log(`Stopped OHLCV watcher for room ${room}`);
+        this.watcherTasks.delete(room);
+        if (exchangeWrapper.exchange.has['unWatchTrades']) {
+          await exchangeWrapper.exchange.unWatchTrades(symbol);
+        }
+        this.rooms.delete(room);
+        return;
+      }
+
+      try {
         let trades: any[] = [];
         try {
           trades = await exchangeWrapper.exchange.watchTrades(symbol);
         } catch (err) {
           this.logger.error(`Error watching trades for ${room}: ${err.message}`);
-          await this.delay(1000);
-          continue;
+          return; // Continue to next interval instead of using delay
         }
+
         this.appendNewTrades(r.trades, trades);
         // Find largest requested timeframe (in ms)
         const tfMap = this.groupByTimeframe(r.subscribers);
         const timeframes = Array.from(tfMap.keys());
-        if (!timeframes.length) continue;
+        if (!timeframes.length) return;
         const tfMsArr = timeframes.map(parseTimeframe);
         const maxTfMs = Math.max(...tfMsArr);
         this.pruneHistory(r.trades, maxTfMs);
@@ -187,21 +199,12 @@ export class WsOhlcvService {
             });
           }
         }
-        await this.delay(1000);
+      } catch (err) {
+        this.logger.error(`Error in OHLCV watcher for room ${room}: ${err.message}`, err.stack);
       }
-    } catch (err) {
-      this.logger.error(`Error in OHLCV watcher for room ${room}: ${err.message}`, err.stack);
-    } finally {
-      this.logger.log(`Stopped OHLCV watcher for room ${room}`);
-      this.watcherTasks.delete(room);
-      if (exchangeWrapper.exchange.has['unWatchTrades']) {
-        await exchangeWrapper.exchange.unWatchTrades(symbol);
-      }
-      this.rooms.delete(room);
-    }
-  }
+    }, 1000);
 
-  private delay(ms: number) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+    // Store the interval ID for cleanup
+    this.watcherTasks.set(room, Promise.resolve());
   }
 }

@@ -2,7 +2,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { OrderBook, OrderBooks } from 'ccxt';
 import { ExchangeInstanceService } from '../exchange/exchange-instance.service';
-import { delay } from '../utils/delay';
 import { ORDERBOOK_UPDATE_EVENT, ORDERBOOKS_UPDATE_EVENT } from './streaming-events.constants';
 
 @Injectable()
@@ -85,8 +84,15 @@ export class WsOrderbookService {
   private async startOrderbookWatcher(exchangeId: string, symbols: string[], room: string): Promise<void> {
     this.logger.log(`Starting orderbook watcher for room ${room}`);
     const exchange = await this.exchangeInstanceService.getOrCreatePublicExchange(exchangeId);
-    try {
-      while (this.subscribers.has(room)) {
+
+    const interval = setInterval(async () => {
+      if (!this.subscribers.has(room)) {
+        clearInterval(interval);
+        await this.cleanupWatcher(exchange, room, symbols);
+        return;
+      }
+
+      try {
         let orderbooks: OrderBook | OrderBooks;
         if (symbols.length === 1) {
           orderbooks = await exchange.exchange.watchOrderBook(symbols[0]);
@@ -95,13 +101,13 @@ export class WsOrderbookService {
           orderbooks = await exchange.exchange.watchOrderBookForSymbols(symbols);
           this.eventEmitter.emit(ORDERBOOKS_UPDATE_EVENT, { room, data: orderbooks });
         }
-        await delay(1000);
+      } catch (err) {
+        this.logger.error(`Error in orderbook watcher for room ${room}: ${err.message}`, err.stack);
       }
-    } catch (err) {
-      this.logger.error(`Error in orderbook watcher for room ${room}: ${err.message}`, err.stack);
-    } finally {
-      await this.cleanupWatcher(exchange, room, symbols);
-    }
+    }, 1000);
+
+    // Store the interval ID for cleanup
+    this.watcherTasks.set(room, Promise.resolve());
   }
 
   private async cleanupWatcher(exchange: any, room: string, symbols: string[]) {
