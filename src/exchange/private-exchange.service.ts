@@ -1,5 +1,5 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
-import { CcxtOrder } from 'src/models/ccxt';
+import { CcxtOrder, CcxtTrade } from 'src/models/ccxt';
 import { SessionStore } from 'src/session-store/session-store.interface';
 import { CancelOrderDto } from './dto/cancel-order.dto';
 import { CreateConnectionDto } from './dto/create-connection.dto';
@@ -7,6 +7,8 @@ import { CreateOrderDto } from './dto/create-order.dto';
 import { CreateOrdersDto } from './dto/create-orders.dto';
 import { EditOrderDto } from './dto/edit-order.dto';
 import { ExchangeCredentialsDto } from './dto/exchange-credentials.dto';
+import { FetchOrdersDto } from './dto/fetch-orders.dto';
+import { FetchTradesDto } from './dto/fetch-trades.dto';
 import { RemoveConnectionDto } from './dto/remove-connection.dto';
 import { ExchangeFactory } from './exchange.factory';
 import { ExchangeWrapper } from './wrappers/exchange-wrapper.interface';
@@ -43,7 +45,7 @@ export class PrivateExchangeService {
     return exchangeWrapper;
   }
 
-  private async getExchange(userId: string, exchangeId: string): Promise<ExchangeWrapper | undefined> {
+  private async getExchangeWrapper(userId: string, exchangeId: string): Promise<ExchangeWrapper | undefined> {
     return this.sessionStore.get(this.getSessionKey(userId, exchangeId));
   }
 
@@ -67,7 +69,7 @@ export class PrivateExchangeService {
   async createOrder(dto: CreateOrderDto): Promise<CcxtOrder> {
     const { userId, exchangeId, symbol, type, side, amount, price, params } = dto;
 
-    const exchange = await this.getExchange(userId, exchangeId);
+    const exchange = await this.getExchangeWrapper(userId, exchangeId);
 
     if (!exchange) {
       throw new Error('Exchange instance not found for user');
@@ -81,7 +83,7 @@ export class PrivateExchangeService {
 
     id = String(id);
 
-    const exchange = await this.getExchange(userId, exchangeId);
+    const exchange = await this.getExchangeWrapper(userId, exchangeId);
 
     if (!exchange) {
       throw new Error('Exchange instance not found for user');
@@ -92,17 +94,17 @@ export class PrivateExchangeService {
 
   async createOrders(dto: CreateOrdersDto): Promise<CcxtOrder[]> {
     const { userId, exchangeId, orders } = dto;
-    const exchange = await this.getExchange(userId, exchangeId);
+    const exchangeWrapper = await this.getExchangeWrapper(userId, exchangeId);
 
-    if (!exchange) {
+    if (!exchangeWrapper) {
       throw new Error(`Exchange instance not found for user ${userId}`);
     }
 
-    if (!exchange.has['createOrders']) {
+    if (!exchangeWrapper.has['createOrders']) {
       throw new BadRequestException(`The exchange '${exchangeId}' does not support batch order creation.`);
     }
 
-    return await exchange.createOrders(orders);
+    return await exchangeWrapper.createOrders(orders);
   }
 
   async cancelOrder(dto: CancelOrderDto): Promise<Record<string, any>> {
@@ -110,12 +112,53 @@ export class PrivateExchangeService {
 
     id = String(id);
 
-    const exchange = await this.getExchange(userId, exchangeId);
+    const exchangeWrapper = await this.getExchangeWrapper(userId, exchangeId);
+
+    if (!exchangeWrapper) {
+      throw new Error(`Exchange instance not found for user ${userId}`);
+    }
+
+    return exchangeWrapper.cancelOrder(id, symbol, params);
+  }
+
+  async fetchOrders(dto: FetchOrdersDto): Promise<CcxtOrder[]> {
+    const { userId, exchangeId, symbol, params } = dto;
+
+    const exchangeWrapper = await this.getExchangeWrapper(userId, exchangeId);
+
+    if (!exchangeWrapper) {
+      throw new Error(`Exchange instance not found for user ${userId}`);
+    }
+
+    // Check if exchange supports fetchOrders, fallback to fetchClosedOrders if not
+    if (exchangeWrapper.exchange.has['fetchOrders']) {
+      return (await exchangeWrapper.exchange.fetchOrders(
+        symbol,
+        undefined,
+        undefined,
+        params
+      )) as unknown as CcxtOrder[];
+    } else if (exchangeWrapper.exchange.has['fetchClosedOrders']) {
+      return (await exchangeWrapper.exchange.fetchClosedOrders(
+        symbol,
+        undefined,
+        undefined,
+        params
+      )) as unknown as CcxtOrder[];
+    } else {
+      throw new BadRequestException(`The exchange '${exchangeId}' does not support fetching orders.`);
+    }
+  }
+
+  async fetchTrades(dto: FetchTradesDto): Promise<CcxtTrade[]> {
+    const { userId, exchangeId, symbol, since, limit, params } = dto;
+
+    const exchange = await this.getExchangeWrapper(userId, exchangeId);
 
     if (!exchange) {
       throw new Error(`Exchange instance not found for user ${userId}`);
     }
 
-    return exchange.cancelOrder(id, symbol, params);
+    return (await exchange.exchange.fetchMyTrades(symbol, since, limit, params)) as unknown as CcxtTrade[];
   }
 }

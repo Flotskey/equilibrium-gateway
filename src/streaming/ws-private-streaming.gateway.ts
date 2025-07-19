@@ -238,20 +238,26 @@ export class WsPrivateStreamingGateway {
   // --- Orders ---
   @SubscribeMessage('watchOrders')
   async handleWatchOrders(@MessageBody() dto: WatchOrdersDto, @ConnectedSocket() client: Socket & { user: any }) {
-    const { room, started } = await this.ordersService.watchOrders(
-      client.id,
-      client.user.userId,
-      dto.exchangeId,
-      dto.symbol
-    );
-    if (started) {
-      client.join(room);
-      this.logger.log(`Client ${client.id} (user ${client.user.userId}) joined room ${room} (watchOrders)`);
-    } else {
-      client.emit('error', { message: 'No private exchange instance found. Please call createConnection first.' });
-      this.logger.warn(
-        `Client ${client.id} (user ${client.user.userId}) could not join room ${room} (watchOrders) - missing exchange instance`
+    try {
+      const { room, started } = await this.ordersService.watchOrders(
+        client.id,
+        client.user.userId,
+        dto.exchangeId,
+        dto.symbol
       );
+
+      if (started) {
+        client.join(room);
+        this.logger.log(`Client ${client.id} (user ${client.user.userId}) joined room ${room} (watchOrders)`);
+      } else {
+        client.emit('error', { message: 'No private exchange instance found. Please call createConnection first.' });
+        this.logger.warn(
+          `Client ${client.id} (user ${client.user.userId}) could not join room ${room} (watchOrders) - missing exchange instance`
+        );
+      }
+    } catch (error) {
+      this.logger.error(`[watchOrders] Error occurred: ${error.message}`, error.stack);
+      client.emit('error', { message: `Failed to watch orders: ${error.message}` });
     }
   }
   @SubscribeMessage('unWatchOrders')
@@ -290,20 +296,26 @@ export class WsPrivateStreamingGateway {
   // --- Positions ---
   @SubscribeMessage('watchPositions')
   async handleWatchPositions(@MessageBody() dto: WatchPositionsDto, @ConnectedSocket() client: Socket & { user: any }) {
-    const { room, started } = await this.positionsService.watchPositions(
-      client.id,
-      client.user.userId,
-      dto.exchangeId,
-      dto.symbol
-    );
-    if (started) {
-      client.join(room);
-      this.logger.log(`Client ${client.id} (user ${client.user.userId}) joined room ${room} (watchPositions)`);
-    } else {
-      client.emit('error', { message: 'No private exchange instance found. Please call createConnection first.' });
-      this.logger.warn(
-        `Client ${client.id} (user ${client.user.userId}) could not join room ${room} (watchPositions) - missing exchange instance`
+    try {
+      const { room, started } = await this.positionsService.watchPositions(
+        client.id,
+        client.user.userId,
+        dto.exchangeId,
+        dto.symbol
       );
+
+      if (started) {
+        client.join(room);
+        this.logger.log(`Client ${client.id} (user ${client.user.userId}) joined room ${room} (watchPositions)`);
+      } else {
+        client.emit('error', { message: 'No private exchange instance found. Please call createConnection first.' });
+        this.logger.warn(
+          `Client ${client.id} (user ${client.user.userId}) could not join room ${room} (watchPositions) - missing exchange instance`
+        );
+      }
+    } catch (error) {
+      this.logger.error(`[watchPositions] Error occurred: ${error.message}`, error.stack);
+      client.emit('error', { message: `Failed to watch positions: ${error.message}` });
     }
   }
   @SubscribeMessage('unWatchPositions')

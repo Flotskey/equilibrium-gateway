@@ -27,17 +27,26 @@ export class WsPrivatePositionsService {
   ): Promise<{ room: string; started: boolean }> {
     const room = this.getRoomKey(userId, exchangeId, symbol);
     this.addSubscriber(room, userId);
+
     if (!this.watcherTasks.has(room)) {
-      const exchange = await this.exchangeInstanceService.getPrivateExchange(userId, exchangeId);
-      if (!exchange) {
-        this.logger.warn(
-          `No private exchange instance found for user ${userId}, exchange ${exchangeId}. Did you call createConnection?`
-        );
-        return { room, started: false };
+      try {
+        const exchange = await this.exchangeInstanceService.getPrivateExchange(userId, exchangeId);
+
+        if (!exchange) {
+          this.logger.warn(
+            `No private exchange instance found for user ${userId}, exchange ${exchangeId}. Did you call createConnection?`
+          );
+          return { room, started: false };
+        }
+
+        this.watcherTasks.set(room, this.startPositionsWatcher(userId, exchangeId, room, symbol));
+        return { room, started: true };
+      } catch (error) {
+        this.logger.error(`[WsPrivatePositionsService] Error in watchPositions: ${error.message}`, error.stack);
+        throw error;
       }
-      this.watcherTasks.set(room, this.startPositionsWatcher(userId, exchangeId, room, symbol));
-      return { room, started: true };
     }
+
     return { room, started: true };
   }
 
@@ -69,34 +78,51 @@ export class WsPrivatePositionsService {
     symbol?: string
   ): Promise<void> {
     this.logger.log(`Starting private positions watcher for room ${room}`);
-    const exchangeWrapper = await this.exchangeInstanceService.getPrivateExchange(userId, exchangeId);
-    if (!exchangeWrapper) {
-      this.logger.warn(
-        `No private exchange instance found for user ${userId}, exchange ${exchangeId}. Did you call createConnection?`
-      );
-      this.watcherTasks.delete(room);
-      return;
-    }
 
-    const interval = setInterval(async () => {
-      if (!this.subscribers.has(room)) {
-        clearInterval(interval);
-        this.logger.log(`Stopped private positions watcher for room ${room}`);
+    try {
+      const exchangeWrapper = await this.exchangeInstanceService.getPrivateExchange(userId, exchangeId);
+
+      if (!exchangeWrapper) {
+        this.logger.warn(
+          `No private exchange instance found for user ${userId}, exchange ${exchangeId}. Did you call createConnection?`
+        );
         this.watcherTasks.delete(room);
         return;
       }
 
-      try {
-        const positions: Position[] = symbol
-          ? await exchangeWrapper.exchange.watchPositions([symbol])
-          : await exchangeWrapper.exchange.watchPositions();
-        this.eventEmitter.emit(POSITIONS_UPDATE_EVENT, { room, data: positions });
-      } catch (err) {
-        this.logger.error(`Error in private positions watcher for room ${room}: ${err.message}`, err.stack);
-      }
-    }, 1000);
+      const interval = setInterval(async () => {
+        if (!this.subscribers.has(room)) {
+          clearInterval(interval);
+          this.logger.log(`Stopped private positions watcher for room ${room}`);
+          this.watcherTasks.delete(room);
+          return;
+        }
 
-    // Store the interval ID for cleanup
-    this.watcherTasks.set(room, Promise.resolve());
+        try {
+          // Check if exchange supports watchPositions
+          if (!exchangeWrapper.exchange.has['watchPositions']) {
+            this.logger.error(
+              `[WsPrivatePositionsService] Exchange ${exchangeId} does not support watchPositions method`
+            );
+            throw new Error(`Exchange ${exchangeId} does not support watchPositions method`);
+          }
+
+          const positions: Position[] = symbol
+            ? await exchangeWrapper.exchange.watchPositions([symbol])
+            : await exchangeWrapper.exchange.watchPositions();
+
+          this.eventEmitter.emit(POSITIONS_UPDATE_EVENT, { room, data: positions });
+        } catch (err) {
+          this.logger.error(`Error in private positions watcher for room ${room}: ${err.message}`, err.stack);
+        }
+      }, 1000);
+
+      // Store the interval ID for cleanup
+      this.watcherTasks.set(room, Promise.resolve());
+    } catch (error) {
+      this.logger.error(`[WsPrivatePositionsService] Error in startPositionsWatcher: ${error.message}`, error.stack);
+      this.watcherTasks.delete(room);
+      throw error;
+    }
   }
 }

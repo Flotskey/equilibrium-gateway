@@ -7,11 +7,10 @@ export class WebSocketJwtAuthGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const client = context.switchToWs().getClient();
-    const authHeader = client.handshake.headers['authorization'];
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const token = client.handshake.auth.token;
+    if (!token) {
       throw new UnauthorizedException('Missing or invalid Authorization header');
     }
-    const token = authHeader.split(' ')[1];
     const decodedToken = await this.authService.validateToken(token);
     if (!decodedToken) {
       throw new UnauthorizedException('Invalid or expired Firebase token');
