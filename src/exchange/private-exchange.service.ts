@@ -49,7 +49,7 @@ export class PrivateExchangeService {
   }
 
   async createConnection(dto: CreateConnectionDto): Promise<void> {
-    const exchange = await this.getOrCreateExchange(dto.userId, dto.exchangeId, dto.creds);
+    const exchange = await this.getOrCreateExchange(dto.userId, dto.exchangeId, dto.credentials);
     // test the connection by fetching the balance
     await exchange.fetchBalance();
   }

@@ -9,5 +9,5 @@ export class CreateConnectionDto {
   exchangeId: string;
 
   @ApiProperty()
-  creds: ExchangeCredentialsDto;
+  credentials: ExchangeCredentialsDto;
 }
