@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { CcxtOrder, CcxtTrade } from 'src/models/ccxt';
 import { SessionStore } from 'src/session-store/session-store.interface';
 import { CancelOrderDto } from './dto/cancel-order.dto';
@@ -31,18 +31,52 @@ export class PrivateExchangeService {
   private async getOrCreateExchange(
     userId: string,
     exchangeId: string,
-    creds: ExchangeCredentialsDto
+    credentials: ExchangeCredentialsDto
   ): Promise<ExchangeWrapper> {
     const key = this.getSessionKey(userId, exchangeId);
     let exchangeWrapper = await this.sessionStore.get(key);
 
     if (!exchangeWrapper) {
-      exchangeWrapper = this.exchangeFactory.create(exchangeId, creds);
+      // Validate credentials before creating exchange instance
+      await this.validateCredentials(exchangeId, credentials);
+
+      exchangeWrapper = this.exchangeFactory.create(exchangeId, credentials);
       await exchangeWrapper.exchange.loadMarkets();
       await this.sessionStore.set(key, exchangeWrapper);
     }
 
     return exchangeWrapper;
+  }
+
+  private async validateCredentials(exchangeId: string, credentials: ExchangeCredentialsDto): Promise<void> {
+    // Create a temporary exchange instance to get required credentials
+    const tempExchange = this.exchangeFactory.create(exchangeId, credentials);
+
+    try {
+      const requiredCredentials = tempExchange.exchange.requiredCredentials;
+
+      if (requiredCredentials) {
+        // Check for missing required credentials
+        const missingCredentials = Object.keys(requiredCredentials)
+          .filter((cred) => requiredCredentials[cred])
+          .filter((cred) => !credentials[cred] || credentials[cred] === '');
+
+        if (missingCredentials.length > 0) {
+          throw new BadRequestException(
+            `Missing required credentials for exchange ${exchangeId}: ${missingCredentials.join(', ')}`
+          );
+        }
+      }
+    } finally {
+      // Explicitly close the temporary exchange to clean up any resources
+      if (typeof tempExchange.close === 'function') {
+        try {
+          await tempExchange.close();
+        } catch (err) {
+          // Ignore cleanup errors for temporary instances
+        }
+      }
+    }
   }
 
   private async getExchangeWrapper(userId: string, exchangeId: string): Promise<ExchangeWrapper | undefined> {
@@ -51,8 +85,15 @@ export class PrivateExchangeService {
 
   async createConnection(dto: CreateConnectionDto): Promise<void> {
     const exchangeWrapper = await this.getOrCreateExchange(dto.userId, dto.exchangeId, dto.credentials);
-    // test the connection by fetching the balance
-    await exchangeWrapper.exchange.fetchBalance();
+
+    // Test the connection by fetching the balance
+    try {
+      await exchangeWrapper.exchange.fetchBalance();
+    } catch (error) {
+      // If balance fetch fails, remove the exchange instance and re-throw
+      await this.sessionStore.delete(this.getSessionKey(dto.userId, dto.exchangeId));
+      throw new BadRequestException(`Failed to connect to exchange ${dto.exchangeId}: ${error.message}`);
+    }
   }
 
   async removeConnection(dto: RemoveConnectionDto): Promise<void> {
@@ -60,7 +101,12 @@ export class PrivateExchangeService {
     const exchange = await this.sessionStore.get(key);
 
     if (exchange && typeof exchange.close === 'function') {
-      await exchange.close();
+      try {
+        await exchange.close();
+      } catch (error) {
+        // Log error but don't fail the removal
+        console.error(`Error closing exchange connection: ${error.message}`);
+      }
     }
 
     await this.sessionStore.delete(key);
@@ -69,35 +115,55 @@ export class PrivateExchangeService {
   async createOrder(dto: CreateOrderDto): Promise<CcxtOrder> {
     const { userId, exchangeId, symbol, type, side, amount, price, params } = dto;
 
-    const exchange = await this.getExchangeWrapper(userId, exchangeId);
-
-    if (!exchange) {
-      throw new Error('Exchange instance not found for user');
+    // Validate required parameters
+    if (!symbol || !type || !side || !amount) {
+      throw new BadRequestException('Missing required parameters: symbol, type, side, and amount are required');
     }
 
-    return await exchange.createOrder(symbol, type, side, amount, price, params);
+    const exchangeWrapper = await this.getExchangeWrapper(userId, exchangeId);
+
+    if (!exchangeWrapper) {
+      throw new NotFoundException(
+        `Exchange instance not found for user ${userId} and exchange ${exchangeId}. Please call createConnection first.`
+      );
+    }
+
+    return await exchangeWrapper.createOrder(symbol, type, side, amount, price, params);
   }
 
   async editOrder(dto: EditOrderDto): Promise<CcxtOrder> {
-    let { userId, exchangeId, id, symbol, type, side, amount, price, params } = dto;
+    const { userId, exchangeId, id, symbol, type, side, amount, price, params } = dto;
 
-    id = String(id);
-
-    const exchange = await this.getExchangeWrapper(userId, exchangeId);
-
-    if (!exchange) {
-      throw new Error('Exchange instance not found for user');
+    // Validate required parameters
+    if (!id || !symbol || !type || !side || !amount) {
+      throw new BadRequestException('Missing required parameters: id, symbol, type, side, and amount are required');
     }
 
-    return await exchange.editOrder(id, symbol, type, side, amount, price, params);
+    const exchangeWrapper = await this.getExchangeWrapper(userId, exchangeId);
+
+    if (!exchangeWrapper) {
+      throw new NotFoundException(
+        `Exchange instance not found for user ${userId} and exchange ${exchangeId}. Please call createConnection first.`
+      );
+    }
+
+    return await exchangeWrapper.editOrder(String(id), symbol, type, side, amount, price, params);
   }
 
   async createOrders(dto: CreateOrdersDto): Promise<CcxtOrder[]> {
     const { userId, exchangeId, orders } = dto;
+
+    // Validate required parameters
+    if (!orders || !Array.isArray(orders) || orders.length === 0) {
+      throw new BadRequestException('Orders array is required and must not be empty');
+    }
+
     const exchangeWrapper = await this.getExchangeWrapper(userId, exchangeId);
 
     if (!exchangeWrapper) {
-      throw new Error(`Exchange instance not found for user ${userId}`);
+      throw new NotFoundException(
+        `Exchange instance not found for user ${userId} and exchange ${exchangeId}. Please call createConnection first.`
+      );
     }
 
     if (!exchangeWrapper.has['createOrders']) {
@@ -108,17 +174,22 @@ export class PrivateExchangeService {
   }
 
   async cancelOrder(dto: CancelOrderDto): Promise<Record<string, any>> {
-    let { userId, exchangeId, id, symbol, params } = dto;
+    const { userId, exchangeId, id, symbol, params } = dto;
 
-    id = String(id);
+    // Validate required parameters
+    if (!id) {
+      throw new BadRequestException('Order ID is required');
+    }
 
     const exchangeWrapper = await this.getExchangeWrapper(userId, exchangeId);
 
     if (!exchangeWrapper) {
-      throw new Error(`Exchange instance not found for user ${userId}`);
+      throw new NotFoundException(
+        `Exchange instance not found for user ${userId} and exchange ${exchangeId}. Please call createConnection first.`
+      );
     }
 
-    return exchangeWrapper.cancelOrder(id, symbol, params);
+    return exchangeWrapper.cancelOrder(String(id), symbol, params);
   }
 
   async fetchOrders(dto: FetchOrdersDto): Promise<CcxtOrder[]> {
@@ -127,7 +198,9 @@ export class PrivateExchangeService {
     const exchangeWrapper = await this.getExchangeWrapper(userId, exchangeId);
 
     if (!exchangeWrapper) {
-      throw new Error(`Exchange instance not found for user ${userId}`);
+      throw new NotFoundException(
+        `Exchange instance not found for user ${userId} and exchange ${exchangeId}. Please call createConnection first.`
+      );
     }
 
     // Check if exchange supports fetchOrders, fallback to fetchClosedOrders if not
@@ -153,12 +226,23 @@ export class PrivateExchangeService {
   async fetchTrades(dto: FetchTradesDto): Promise<CcxtTrade[]> {
     const { userId, exchangeId, symbol, since, limit, params } = dto;
 
-    const exchange = await this.getExchangeWrapper(userId, exchangeId);
-
-    if (!exchange) {
-      throw new Error(`Exchange instance not found for user ${userId}`);
+    // Validate required parameters
+    if (!symbol) {
+      throw new BadRequestException('Symbol is required');
     }
 
-    return (await exchange.exchange.fetchMyTrades(symbol, since, limit, params)) as unknown as CcxtTrade[];
+    const exchangeWrapper = await this.getExchangeWrapper(userId, exchangeId);
+
+    if (!exchangeWrapper) {
+      throw new NotFoundException(
+        `Exchange instance not found for user ${userId} and exchange ${exchangeId}. Please call createConnection first.`
+      );
+    }
+
+    if (!exchangeWrapper.exchange.has['fetchMyTrades']) {
+      throw new BadRequestException(`The exchange '${exchangeId}' does not support fetching trades.`);
+    }
+
+    return (await exchangeWrapper.exchange.fetchMyTrades(symbol, since, limit, params)) as unknown as CcxtTrade[];
   }
 }

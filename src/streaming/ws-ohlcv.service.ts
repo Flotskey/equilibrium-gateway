@@ -141,30 +141,34 @@ export class WsOhlcvService {
         clearInterval(interval);
         this.logger.log(`Stopped OHLCV watcher for room ${room}`);
         this.watcherTasks.delete(room);
+
+        // Cleanup exchange watcher if supported
         if (exchangeWrapper.exchange.has['unWatchTrades']) {
-          await exchangeWrapper.exchange.unWatchTrades(symbol);
+          try {
+            await exchangeWrapper.exchange.unWatchTrades(symbol);
+          } catch (err) {
+            this.logger.error(`Error unwatching trades for ${room}: ${err.message}`);
+          }
         }
+
         this.rooms.delete(room);
         return;
       }
 
       try {
-        let trades: any[] = [];
-        try {
-          trades = await exchangeWrapper.exchange.watchTrades(symbol);
-        } catch (err) {
-          this.logger.error(`Error watching trades for ${room}: ${err.message}`);
-          return; // Continue to next interval instead of using delay
-        }
+        const trades: any[] = await exchangeWrapper.exchange.watchTrades(symbol);
 
         this.appendNewTrades(r.trades, trades);
+
         // Find largest requested timeframe (in ms)
         const tfMap = this.groupByTimeframe(r.subscribers);
         const timeframes = Array.from(tfMap.keys());
         if (!timeframes.length) return;
+
         const tfMsArr = timeframes.map(parseTimeframe);
         const maxTfMs = Math.max(...tfMsArr);
         this.pruneHistory(r.trades, maxTfMs);
+
         // For each unique timeframe, build OHLCVC once, emit to all users requesting it
         for (const [tf, clientIds] of tfMap.entries()) {
           let ohlcvc: any[] = [];
@@ -174,11 +178,14 @@ export class WsOhlcvService {
             this.logger.error(`buildOHLCVC failed for ${room} tf=${tf}: ${e.message}`);
             continue;
           }
+
           if (!ohlcvc.length) continue;
+
           // All but last candle are closed
           for (const clientId of clientIds) {
             const mapKey = `${clientId}:${tf}`;
             let lastEmitted = r.lastEmitted.get(mapKey) || 0;
+
             for (let i = 0; i < ohlcvc.length - 1; i++) {
               const candle = ohlcvc[i];
               const ts = candle[0];
@@ -191,6 +198,7 @@ export class WsOhlcvService {
               }
             }
             r.lastEmitted.set(mapKey, lastEmitted);
+
             // Always emit the in-progress candle
             const lastCandle = ohlcvc[ohlcvc.length - 1];
             this.eventEmitter.emit(OHLCV_UPDATE_EVENT, {
@@ -200,9 +208,9 @@ export class WsOhlcvService {
           }
         }
       } catch (err) {
-        this.logger.error(`Error in OHLCV watcher for room ${room}: ${err.message}`, err.stack);
+        this.logger.error(`Error watching trades for ${room}: ${err.message}`);
       }
-    }, 1000);
+    }, 500);
 
     // Store the interval ID for cleanup
     this.watcherTasks.set(room, Promise.resolve());
