@@ -4,16 +4,21 @@ import { Request } from 'express';
 import { DecodedIdToken } from 'firebase-admin/auth';
 import { FirebaseAuthGuard } from 'src/auth/firebase-auth.guard';
 import { GatewayOrder } from 'src/exchange/dto/gateway-order.dto';
-import { CcxtBalances, CcxtTrade } from 'src/models/ccxt';
+import { CcxtBalances, CcxtLeverage, CcxtLeverageTier, CcxtMarginMode, CcxtTrade } from 'src/models/ccxt';
 import { CancelOrderDto } from './dto/cancel-order.dto';
 import { CreateConnectionDto } from './dto/create-connection.dto';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { CreateOrdersDto } from './dto/create-orders.dto';
 import { EditOrderDto } from './dto/edit-order.dto';
 import { FetchBalanceDto } from './dto/fetch-balance.dto';
+import { FetchLeverageTiersDto } from './dto/fetch-leverage-tiers.dto';
+import { FetchLeverageDto } from './dto/fetch-leverage.dto';
+import { FetchMarginModeDto } from './dto/fetch-margin-mode.dto';
 import { FetchOrdersDto } from './dto/fetch-orders.dto';
 import { FetchTradesDto } from './dto/fetch-trades.dto';
 import { RemoveConnectionDto } from './dto/remove-connection.dto';
+import { SetLeverageDto } from './dto/set-leverage.dto';
+import { SetMarginModeDto } from './dto/set-margin-mode.dto';
 import { PrivateExchangeService } from './private-exchange.service';
 
 @Controller('exchanges/private')
@@ -119,5 +124,60 @@ export class PrivateExchangeController {
   ): Promise<CcxtBalances> {
     dto.userId = req.user.uid;
     return this.privateExchangeService.fetchBalance(dto);
+  }
+
+  @Post('margin-mode/set')
+  @HttpCode(200)
+  @ApiResponse({ status: 200, description: 'The margin mode has been successfully set.', type: Object })
+  async setMarginMode(
+    @Body() dto: SetMarginModeDto,
+    @Req() req: Request & { user: DecodedIdToken }
+  ): Promise<Record<string, any>> {
+    dto.userId = req.user.uid;
+    return this.privateExchangeService.setMarginMode(dto);
+  }
+
+  @Post('margin-mode/fetch')
+  @HttpCode(200)
+  @ApiResponse({ status: 200, description: 'The current margin mode.', type: Object })
+  async fetchMarginMode(
+    @Body() dto: FetchMarginModeDto,
+    @Req() req: Request & { user: DecodedIdToken }
+  ): Promise<CcxtMarginMode> {
+    dto.userId = req.user.uid;
+    return this.privateExchangeService.fetchMarginMode(dto);
+  }
+
+  @Post('leverage/set')
+  @HttpCode(200)
+  @ApiResponse({ status: 200, description: 'The leverage has been successfully set.', type: Object })
+  async setLeverage(
+    @Body() dto: SetLeverageDto,
+    @Req() req: Request & { user: DecodedIdToken }
+  ): Promise<Record<string, any>> {
+    dto.userId = req.user.uid;
+    return this.privateExchangeService.setLeverage(dto);
+  }
+
+  @Post('leverage/fetch')
+  @HttpCode(200)
+  @ApiResponse({ status: 200, description: 'The current leverage.', type: Object })
+  async fetchLeverage(
+    @Body() dto: FetchLeverageDto,
+    @Req() req: Request & { user: DecodedIdToken }
+  ): Promise<CcxtLeverage> {
+    dto.userId = req.user.uid;
+    return this.privateExchangeService.fetchLeverage(dto);
+  }
+
+  @Post('leverage-tiers/fetch')
+  @HttpCode(200)
+  @ApiResponse({ status: 200, description: 'The market leverage tiers.', type: Object })
+  async fetchMarketLeverageTiers(
+    @Body() dto: FetchLeverageTiersDto,
+    @Req() req: Request & { user: DecodedIdToken }
+  ): Promise<CcxtLeverageTier[]> {
+    dto.userId = req.user.uid;
+    return this.privateExchangeService.fetchMarketLeverageTiers(dto);
   }
 }

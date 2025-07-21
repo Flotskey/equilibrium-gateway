@@ -1,5 +1,5 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { CcxtBalances, CcxtOrder, CcxtTrade } from 'src/models/ccxt';
+import { CcxtBalances, CcxtLeverage, CcxtLeverageTier, CcxtMarginMode, CcxtOrder, CcxtTrade } from 'src/models/ccxt';
 import { SessionStore } from 'src/session-store/session-store.interface';
 import { CancelOrderDto } from './dto/cancel-order.dto';
 import { CreateConnectionDto } from './dto/create-connection.dto';
@@ -8,9 +8,14 @@ import { CreateOrdersDto } from './dto/create-orders.dto';
 import { EditOrderDto } from './dto/edit-order.dto';
 import { ExchangeCredentialsDto } from './dto/exchange-credentials.dto';
 import { FetchBalanceDto } from './dto/fetch-balance.dto';
+import { FetchLeverageTiersDto } from './dto/fetch-leverage-tiers.dto';
+import { FetchLeverageDto } from './dto/fetch-leverage.dto';
+import { FetchMarginModeDto } from './dto/fetch-margin-mode.dto';
 import { FetchOrdersDto } from './dto/fetch-orders.dto';
 import { FetchTradesDto } from './dto/fetch-trades.dto';
 import { RemoveConnectionDto } from './dto/remove-connection.dto';
+import { SetLeverageDto } from './dto/set-leverage.dto';
+import { SetMarginModeDto } from './dto/set-margin-mode.dto';
 import { ExchangeFactory } from './exchange.factory';
 import { ExchangeWrapper } from './wrappers/exchange-wrapper.interface';
 
@@ -254,5 +259,100 @@ export class PrivateExchangeService {
     }
 
     return (await exchangeWrapper.exchange.fetchBalance()) as unknown as CcxtBalances;
+  }
+
+  async setMarginMode(dto: SetMarginModeDto): Promise<Record<string, any>> {
+    const { userId, exchangeId, symbol, marginMode, params } = dto;
+
+    const exchangeWrapper = await this.getExchangeWrapper(userId, exchangeId);
+
+    if (!exchangeWrapper) {
+      throw new NotFoundException(
+        `Exchange instance not found for user ${userId} and exchange ${exchangeId}. Please call createConnection first.`
+      );
+    }
+
+    if (!exchangeWrapper.exchange.has['setMarginMode']) {
+      throw new BadRequestException(`The exchange '${exchangeId}' does not support setting margin mode.`);
+    }
+
+    return await exchangeWrapper.exchange.setMarginMode(marginMode, symbol, params);
+  }
+
+  async fetchMarginMode(dto: FetchMarginModeDto): Promise<CcxtMarginMode> {
+    const { userId, exchangeId, symbol, params } = dto;
+
+    const exchangeWrapper = await this.getExchangeWrapper(userId, exchangeId);
+
+    if (!exchangeWrapper) {
+      throw new NotFoundException(
+        `Exchange instance not found for user ${userId} and exchange ${exchangeId}. Please call createConnection first.`
+      );
+    }
+
+    if (!exchangeWrapper.exchange.has['fetchMarginMode']) {
+      throw new BadRequestException(`The exchange '${exchangeId}' does not support fetching margin mode.`);
+    }
+
+    return (await exchangeWrapper.exchange.fetchMarginMode(symbol, params)) as unknown as CcxtMarginMode;
+  }
+
+  async setLeverage(dto: SetLeverageDto): Promise<Record<string, any>> {
+    const { userId, exchangeId, symbol, leverage, params } = dto;
+
+    const exchangeWrapper = await this.getExchangeWrapper(userId, exchangeId);
+
+    if (!exchangeWrapper) {
+      throw new NotFoundException(
+        `Exchange instance not found for user ${userId} and exchange ${exchangeId}. Please call createConnection first.`
+      );
+    }
+
+    if (!exchangeWrapper.exchange.has['setLeverage']) {
+      throw new BadRequestException(`The exchange '${exchangeId}' does not support setting leverage.`);
+    }
+
+    return (await exchangeWrapper.exchange.setLeverage(leverage, symbol, params)) as unknown as Record<string, any>;
+  }
+
+  async fetchLeverage(dto: FetchLeverageDto): Promise<CcxtLeverage> {
+    const { userId, exchangeId, symbol, params } = dto;
+
+    const exchangeWrapper = await this.getExchangeWrapper(userId, exchangeId);
+
+    if (!exchangeWrapper) {
+      throw new NotFoundException(
+        `Exchange instance not found for user ${userId} and exchange ${exchangeId}. Please call createConnection first.`
+      );
+    }
+
+    if (!exchangeWrapper.exchange.has['fetchLeverage']) {
+      throw new BadRequestException(`The exchange '${exchangeId}' does not support fetching leverage.`);
+    }
+
+    return (await exchangeWrapper.exchange.fetchLeverage(symbol, params)) as unknown as CcxtLeverage;
+  }
+
+  async fetchMarketLeverageTiers(dto: FetchLeverageTiersDto): Promise<CcxtLeverageTier[]> {
+    const { userId, exchangeId, symbols, params } = dto;
+
+    const exchangeWrapper = await this.getExchangeWrapper(userId, exchangeId);
+
+    if (!exchangeWrapper) {
+      throw new NotFoundException(
+        `Exchange instance not found for user ${userId} and exchange ${exchangeId}. Please call createConnection first.`
+      );
+    }
+
+    if (!exchangeWrapper.exchange.has['fetchMarketLeverageTiers']) {
+      throw new BadRequestException(`The exchange '${exchangeId}' does not support fetching market leverage tiers.`);
+    }
+
+    // If symbols array is provided, join them with comma, otherwise pass undefined
+    const symbolsParam = symbols && symbols.length > 0 ? symbols.join(',') : undefined;
+    return (await exchangeWrapper.exchange.fetchMarketLeverageTiers(
+      symbolsParam,
+      params
+    )) as unknown as CcxtLeverageTier[];
   }
 }

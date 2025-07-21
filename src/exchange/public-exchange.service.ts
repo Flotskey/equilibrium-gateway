@@ -83,7 +83,10 @@ export class PublicExchangeService {
   }
 
   getExchangesList() {
-    return ccxt.exchanges;
+    // filter out duplicate exchange names
+    return (ccxt.exchanges as unknown as string[]).filter((exchange) => {
+      return exchange != 'gateio' && exchange != 'huobi';
+    });
   }
 
   private async getOrCreateExchange(exchangeId: string): Promise<ExchangeWrapper> {
