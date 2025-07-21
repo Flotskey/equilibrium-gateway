@@ -1,4 +1,4 @@
-export interface CcxtBalance {
+export interface CcxtBalances {
   info: any;
   timestamp: number;
   datetime: string;

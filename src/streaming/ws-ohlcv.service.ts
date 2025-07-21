@@ -137,7 +137,9 @@ export class WsOhlcvService {
     const r = this.rooms.get(room)!;
 
     const interval = setInterval(async () => {
-      if (!this.rooms.has(room) || r.subscribers.size === 0) {
+      // Check if room still exists and has subscribers
+      const currentRoom = this.rooms.get(room);
+      if (!currentRoom || currentRoom.subscribers.size === 0) {
         clearInterval(interval);
         this.logger.log(`Stopped OHLCV watcher for room ${room}`);
         this.watcherTasks.delete(room);
@@ -158,22 +160,22 @@ export class WsOhlcvService {
       try {
         const trades: any[] = await exchangeWrapper.exchange.watchTrades(symbol);
 
-        this.appendNewTrades(r.trades, trades);
+        this.appendNewTrades(currentRoom.trades, trades);
 
         // Find largest requested timeframe (in ms)
-        const tfMap = this.groupByTimeframe(r.subscribers);
+        const tfMap = this.groupByTimeframe(currentRoom.subscribers);
         const timeframes = Array.from(tfMap.keys());
         if (!timeframes.length) return;
 
         const tfMsArr = timeframes.map(parseTimeframe);
         const maxTfMs = Math.max(...tfMsArr);
-        this.pruneHistory(r.trades, maxTfMs);
+        this.pruneHistory(currentRoom.trades, maxTfMs);
 
         // For each unique timeframe, build OHLCVC once, emit to all users requesting it
         for (const [tf, clientIds] of tfMap.entries()) {
           let ohlcvc: any[] = [];
           try {
-            ohlcvc = exchangeWrapper.exchange.buildOHLCVC(r.trades, tf);
+            ohlcvc = exchangeWrapper.exchange.buildOHLCVC(currentRoom.trades, tf);
           } catch (e) {
             this.logger.error(`buildOHLCVC failed for ${room} tf=${tf}: ${e.message}`);
             continue;
@@ -184,7 +186,7 @@ export class WsOhlcvService {
           // All but last candle are closed
           for (const clientId of clientIds) {
             const mapKey = `${clientId}:${tf}`;
-            let lastEmitted = r.lastEmitted.get(mapKey) || 0;
+            let lastEmitted = currentRoom.lastEmitted.get(mapKey) || 0;
 
             for (let i = 0; i < ohlcvc.length - 1; i++) {
               const candle = ohlcvc[i];
@@ -197,7 +199,7 @@ export class WsOhlcvService {
                 lastEmitted = ts;
               }
             }
-            r.lastEmitted.set(mapKey, lastEmitted);
+            currentRoom.lastEmitted.set(mapKey, lastEmitted);
 
             // Always emit the in-progress candle
             const lastCandle = ohlcvc[ohlcvc.length - 1];

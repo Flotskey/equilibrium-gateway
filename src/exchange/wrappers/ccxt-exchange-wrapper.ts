@@ -1,6 +1,6 @@
 import * as ccxt from 'ccxt';
 import { Exchange } from 'ccxt';
-import { CcxtBalance, CcxtMarket, CcxtOrder, CcxtRequiredCredentials } from 'src/models/ccxt';
+import { CcxtBalances, CcxtMarket, CcxtOrder, CcxtRequiredCredentials } from 'src/models/ccxt';
 import { OrderRequestDto } from '../dto/create-orders.dto';
 import { ExchangeWrapper } from './exchange-wrapper.interface';
 
@@ -82,9 +82,9 @@ export class CcxtExchangeWrapper implements ExchangeWrapper {
     return order as unknown as CcxtOrder;
   }
 
-  async fetchBalance(params?: Record<string, any>): Promise<CcxtBalance> {
+  async fetchBalance(params?: Record<string, any>): Promise<CcxtBalances> {
     const balance = await this.exchange.fetchBalance(params);
-    return balance as CcxtBalance;
+    return balance as CcxtBalances;
   }
 
   async close(): Promise<void> {

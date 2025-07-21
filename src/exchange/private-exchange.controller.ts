@@ -4,12 +4,13 @@ import { Request } from 'express';
 import { DecodedIdToken } from 'firebase-admin/auth';
 import { FirebaseAuthGuard } from 'src/auth/firebase-auth.guard';
 import { GatewayOrder } from 'src/exchange/dto/gateway-order.dto';
-import { CcxtTrade } from 'src/models/ccxt';
+import { CcxtBalances, CcxtTrade } from 'src/models/ccxt';
 import { CancelOrderDto } from './dto/cancel-order.dto';
 import { CreateConnectionDto } from './dto/create-connection.dto';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { CreateOrdersDto } from './dto/create-orders.dto';
 import { EditOrderDto } from './dto/edit-order.dto';
+import { FetchBalanceDto } from './dto/fetch-balance.dto';
 import { FetchOrdersDto } from './dto/fetch-orders.dto';
 import { FetchTradesDto } from './dto/fetch-trades.dto';
 import { RemoveConnectionDto } from './dto/remove-connection.dto';
@@ -103,9 +104,20 @@ export class PrivateExchangeController {
 
   @Post('trades')
   @HttpCode(200)
-  @ApiResponse({ status: 200, description: 'A list of user trades.', type: Object })
+  @ApiResponse({ status: 200, description: 'A list of user trades.', type: Object, isArray: true })
   async fetchTrades(@Body() dto: FetchTradesDto, @Req() req: Request & { user: DecodedIdToken }): Promise<CcxtTrade[]> {
     dto.userId = req.user.uid;
     return this.privateExchangeService.fetchTrades(dto);
+  }
+
+  @Post('balance')
+  @HttpCode(200)
+  @ApiResponse({ status: 200, description: 'The user balance.', type: Object })
+  async fetchBalance(
+    @Body() dto: FetchBalanceDto,
+    @Req() req: Request & { user: DecodedIdToken }
+  ): Promise<CcxtBalances> {
+    dto.userId = req.user.uid;
+    return this.privateExchangeService.fetchBalance(dto);
   }
 }

@@ -1,6 +1,6 @@
 import { Exchange } from 'ccxt';
 import { OrderRequestDto } from 'src/exchange/dto/create-orders.dto';
-import { CcxtBalance, CcxtMarket, CcxtOrder, CcxtRequiredCredentials } from 'src/models/ccxt';
+import { CcxtBalances, CcxtMarket, CcxtOrder, CcxtRequiredCredentials } from 'src/models/ccxt';
 import { delay } from 'src/utils/delay';
 import { GatewayOrder } from '../../dto/gateway-order.dto';
 import { ExchangeWrapper } from '../exchange-wrapper.interface';
@@ -9,7 +9,7 @@ export class MockExchangeWrapper implements ExchangeWrapper {
   public readonly exchange: Exchange;
 
   public mockOrders: GatewayOrder[] = [];
-  public mockBalance: CcxtBalance = {
+  public mockBalance: CcxtBalances = {
     info: {},
     timestamp: Date.now(),
     datetime: new Date().toISOString(),
@@ -129,7 +129,7 @@ export class MockExchangeWrapper implements ExchangeWrapper {
     return this.mockOrders.find((o) => o.id === id) as unknown as CcxtOrder;
   }
 
-  async fetchBalance(params?: Record<string, any>): Promise<CcxtBalance> {
+  async fetchBalance(params?: Record<string, any>): Promise<CcxtBalances> {
     return this.mockBalance;
   }
 

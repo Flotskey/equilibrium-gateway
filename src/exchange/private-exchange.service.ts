@@ -1,5 +1,5 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { CcxtOrder, CcxtTrade } from 'src/models/ccxt';
+import { CcxtBalances, CcxtOrder, CcxtTrade } from 'src/models/ccxt';
 import { SessionStore } from 'src/session-store/session-store.interface';
 import { CancelOrderDto } from './dto/cancel-order.dto';
 import { CreateConnectionDto } from './dto/create-connection.dto';
@@ -7,6 +7,7 @@ import { CreateOrderDto } from './dto/create-order.dto';
 import { CreateOrdersDto } from './dto/create-orders.dto';
 import { EditOrderDto } from './dto/edit-order.dto';
 import { ExchangeCredentialsDto } from './dto/exchange-credentials.dto';
+import { FetchBalanceDto } from './dto/fetch-balance.dto';
 import { FetchOrdersDto } from './dto/fetch-orders.dto';
 import { FetchTradesDto } from './dto/fetch-trades.dto';
 import { RemoveConnectionDto } from './dto/remove-connection.dto';
@@ -114,11 +115,6 @@ export class PrivateExchangeService {
 
   async createOrder(dto: CreateOrderDto): Promise<CcxtOrder> {
     const { userId, exchangeId, symbol, type, side, amount, price, params } = dto;
-
-    // Validate required parameters
-    if (!symbol || !type || !side || !amount) {
-      throw new BadRequestException('Missing required parameters: symbol, type, side, and amount are required');
-    }
 
     const exchangeWrapper = await this.getExchangeWrapper(userId, exchangeId);
 
@@ -244,5 +240,19 @@ export class PrivateExchangeService {
     }
 
     return (await exchangeWrapper.exchange.fetchMyTrades(symbol, since, limit, params)) as unknown as CcxtTrade[];
+  }
+
+  async fetchBalance(dto: FetchBalanceDto): Promise<CcxtBalances> {
+    const { userId, exchangeId } = dto;
+
+    const exchangeWrapper = await this.getExchangeWrapper(userId, exchangeId);
+
+    if (!exchangeWrapper) {
+      throw new NotFoundException(
+        `Exchange instance not found for user ${userId} and exchange ${exchangeId}. Please call createConnection first.`
+      );
+    }
+
+    return (await exchangeWrapper.exchange.fetchBalance()) as unknown as CcxtBalances;
   }
 }
