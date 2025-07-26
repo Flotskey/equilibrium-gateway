@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, HttpCode, Logger, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Logger, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
 import { Request } from 'express';
 import { DecodedIdToken } from 'firebase-admin/auth';
@@ -21,7 +21,7 @@ import { SetLeverageDto } from './dto/set-leverage.dto';
 import { SetMarginModeDto } from './dto/set-margin-mode.dto';
 import { PrivateExchangeService } from './private-exchange.service';
 
-@Controller('exchanges/private')
+@Controller('ccxt/private')
 @ApiBearerAuth()
 @UseGuards(FirebaseAuthGuard)
 export class PrivateExchangeController {
@@ -30,7 +30,6 @@ export class PrivateExchangeController {
   private readonly logger = new Logger(PrivateExchangeController.name);
 
   @Post('connection')
-  @HttpCode(200)
   @ApiResponse({ status: 200, description: 'The private connection has been successfully created.' })
   async createConnection(
     @Body() dto: CreateConnectionDto,
@@ -41,7 +40,6 @@ export class PrivateExchangeController {
   }
 
   @Delete('connection')
-  @HttpCode(200)
   @ApiResponse({ status: 200, description: 'The private connection has been successfully removed.' })
   async removeConnection(
     @Body() dto: RemoveConnectionDto,
@@ -52,7 +50,6 @@ export class PrivateExchangeController {
   }
 
   @Post('order')
-  @HttpCode(200)
   @ApiResponse({ status: 200, description: 'The created order.', type: GatewayOrder })
   async createOrder(
     @Body() dto: CreateOrderDto,
@@ -63,7 +60,6 @@ export class PrivateExchangeController {
   }
 
   @Post('order/batch')
-  @HttpCode(200)
   @ApiResponse({ status: 200, description: 'A list of created orders.', type: [GatewayOrder] })
   async createOrders(
     @Body() dto: CreateOrdersDto,
@@ -74,7 +70,6 @@ export class PrivateExchangeController {
   }
 
   @Post('order/edit')
-  @HttpCode(200)
   @ApiResponse({ status: 200, description: 'The edited order.', type: GatewayOrder })
   async editOrder(@Body() dto: EditOrderDto, @Req() req: Request & { user: DecodedIdToken }): Promise<GatewayOrder> {
     dto.userId = req.user.uid;
@@ -82,7 +77,6 @@ export class PrivateExchangeController {
   }
 
   @Post('order/cancel')
-  @HttpCode(200)
   @ApiResponse({
     status: 200,
     description: 'The response from the exchange after attempting to cancel the order.',
@@ -97,7 +91,6 @@ export class PrivateExchangeController {
   }
 
   @Post('orders')
-  @HttpCode(200)
   @ApiResponse({ status: 200, description: 'A list of orders.', type: [GatewayOrder] })
   async fetchOrders(
     @Body() dto: FetchOrdersDto,
@@ -108,7 +101,6 @@ export class PrivateExchangeController {
   }
 
   @Post('trades')
-  @HttpCode(200)
   @ApiResponse({ status: 200, description: 'A list of user trades.', type: Object, isArray: true })
   async fetchTrades(@Body() dto: FetchTradesDto, @Req() req: Request & { user: DecodedIdToken }): Promise<CcxtTrade[]> {
     dto.userId = req.user.uid;
@@ -116,7 +108,6 @@ export class PrivateExchangeController {
   }
 
   @Post('balance')
-  @HttpCode(200)
   @ApiResponse({ status: 200, description: 'The user balance.', type: Object })
   async fetchBalance(
     @Body() dto: FetchBalanceDto,
@@ -127,7 +118,6 @@ export class PrivateExchangeController {
   }
 
   @Post('margin-mode/set')
-  @HttpCode(200)
   @ApiResponse({ status: 200, description: 'The margin mode has been successfully set.', type: Object })
   async setMarginMode(
     @Body() dto: SetMarginModeDto,
@@ -138,7 +128,6 @@ export class PrivateExchangeController {
   }
 
   @Post('margin-mode/fetch')
-  @HttpCode(200)
   @ApiResponse({ status: 200, description: 'The current margin mode.', type: Object })
   async fetchMarginMode(
     @Body() dto: FetchMarginModeDto,
@@ -149,7 +138,6 @@ export class PrivateExchangeController {
   }
 
   @Post('leverage/set')
-  @HttpCode(200)
   @ApiResponse({ status: 200, description: 'The leverage has been successfully set.', type: Object })
   async setLeverage(
     @Body() dto: SetLeverageDto,
@@ -160,7 +148,6 @@ export class PrivateExchangeController {
   }
 
   @Post('leverage/fetch')
-  @HttpCode(200)
   @ApiResponse({ status: 200, description: 'The current leverage.', type: Object })
   async fetchLeverage(
     @Body() dto: FetchLeverageDto,
@@ -171,7 +158,6 @@ export class PrivateExchangeController {
   }
 
   @Post('leverage-tiers/fetch')
-  @HttpCode(200)
   @ApiResponse({ status: 200, description: 'The market leverage tiers.', type: Object })
   async fetchMarketLeverageTiers(
     @Body() dto: FetchLeverageTiersDto,

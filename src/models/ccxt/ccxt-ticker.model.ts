@@ -18,5 +18,4 @@ export interface CcxtTicker {
   average?: number;
   baseVolume?: number;
   quoteVolume?: number;
-  info: any;
 }

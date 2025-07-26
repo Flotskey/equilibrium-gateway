@@ -1,5 +1,4 @@
 export interface CcxtBalances {
-  info: any;
   timestamp: number;
   datetime: string;
   free: { [key: string]: number };

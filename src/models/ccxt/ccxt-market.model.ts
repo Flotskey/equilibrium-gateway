@@ -38,5 +38,4 @@ export interface CcxtMarket {
     cost?: { min?: number; max?: number };
     leverage?: { min?: number; max?: number };
   };
-  info: Record<string, any>;
 }

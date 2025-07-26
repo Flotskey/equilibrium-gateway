@@ -84,7 +84,7 @@ export class CcxtExchangeWrapper implements ExchangeWrapper {
 
   async fetchBalance(params?: Record<string, any>): Promise<CcxtBalances> {
     const balance = await this.exchange.fetchBalance(params);
-    return balance as CcxtBalances;
+    return balance as unknown as CcxtBalances;
   }
 
   async close(): Promise<void> {

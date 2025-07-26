@@ -1,4 +1,6 @@
 export * from './ccxt-balance.model';
+export * from './ccxt-funding-interval.model';
+export * from './ccxt-funding-rate-history.model';
 export * from './ccxt-leverage-tiers.model';
 export * from './ccxt-leverage.model';
 export * from './ccxt-margin-mode.model';

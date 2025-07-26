@@ -5,5 +5,4 @@ export interface CcxtOrderBook {
   nonce?: number;
   bids: [number, number][];
   asks: [number, number][];
-  info: Record<string, any>;
 }

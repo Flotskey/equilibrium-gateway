@@ -5,5 +5,4 @@ export interface CcxtLeverageTier {
   maxNotional: number;
   maintenanceMarginRate: number;
   maxLeverage: number;
-  info: any;
 }

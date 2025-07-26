@@ -77,8 +77,7 @@ export class MockExchangeWrapper implements ExchangeWrapper {
       datetime: new Date().toISOString(),
       filled: 0,
       remaining: amount,
-      cost: 0,
-      info: {}
+      cost: 0
     };
 
     this.mockOrders.push(mockOrder as any);

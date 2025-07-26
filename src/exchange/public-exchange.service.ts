@@ -8,7 +8,8 @@ import {
 } from '@nestjs/common';
 import * as ccxt from 'ccxt';
 import { Dictionary, OHLCV } from 'ccxt';
-import { CcxtMarket, CcxtRequiredCredentials } from 'src/models/ccxt';
+import { CcxtFundingInterval, CcxtFundingRateHistory, CcxtMarket, CcxtRequiredCredentials } from 'src/models/ccxt';
+import { CcxtFundingRate } from 'src/models/ccxt/ccxt-funding-rate.model';
 import { SessionStore } from 'src/session-store/session-store.interface';
 import { ShortMarketDto } from './dto/short-market.dto';
 import { ShortTickerDto } from './dto/short-ticker.dto';
@@ -87,6 +88,50 @@ export class PublicExchangeService {
     return (ccxt.exchanges as unknown as string[]).filter((exchange) => {
       return exchange != 'gateio' && exchange != 'huobi';
     });
+  }
+
+  async getFundingRates(
+    exchangeId: string,
+    symbols?: string[],
+    params?: Record<string, any>
+  ): Promise<Record<string, CcxtFundingRate>> {
+    const exchangeWrapper = await this.getOrCreateExchange(exchangeId);
+    return exchangeWrapper.exchange.fetchFundingRates(symbols, params) as unknown as Record<string, CcxtFundingRate>;
+  }
+
+  async getFundingRate(exchangeId: string, symbol: string): Promise<CcxtFundingRate> {
+    const exchangeWrapper = await this.getOrCreateExchange(exchangeId);
+    return exchangeWrapper.exchange.fetchFundingRate(symbol) as unknown as CcxtFundingRate;
+  }
+
+  async getFundingIntervals(exchangeId: string, params?: Record<string, any>): Promise<CcxtFundingInterval[]> {
+    const exchangeWrapper = await this.getOrCreateExchange(exchangeId);
+    return exchangeWrapper.exchange.fetchFundingIntervals(undefined, params) as unknown as CcxtFundingInterval[];
+  }
+
+  async getFundingInterval(
+    exchangeId: string,
+    symbol: string,
+    params?: Record<string, any>
+  ): Promise<CcxtFundingInterval> {
+    const exchangeWrapper = await this.getOrCreateExchange(exchangeId);
+    return exchangeWrapper.exchange.fetchFundingInterval(symbol, params) as unknown as CcxtFundingInterval;
+  }
+
+  async getFundingRateHistory(
+    exchangeId: string,
+    symbol: string,
+    since?: number,
+    limit?: number,
+    params?: Record<string, any>
+  ): Promise<CcxtFundingRateHistory[]> {
+    const exchangeWrapper = await this.getOrCreateExchange(exchangeId);
+    return exchangeWrapper.exchange.fetchFundingRateHistory(
+      symbol,
+      since,
+      limit,
+      params
+    ) as unknown as CcxtFundingRateHistory[];
   }
 
   private async getOrCreateExchange(exchangeId: string): Promise<ExchangeWrapper> {

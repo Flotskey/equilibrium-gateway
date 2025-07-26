@@ -1,7 +1,6 @@
 export interface CcxtPosition {
   symbol: string;
   id?: string;
-  info: any;
   timestamp?: number;
   datetime?: string;
   contracts?: number;

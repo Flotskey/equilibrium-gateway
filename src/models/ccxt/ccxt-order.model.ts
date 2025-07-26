@@ -5,7 +5,6 @@ export interface CcxtFee {
 }
 
 export interface CcxtTrade {
-  info: any;
   amount: number;
   datetime: number;
   id: string;
@@ -39,5 +38,4 @@ export interface CcxtOrder {
   cost: number;
   trades?: CcxtTrade[];
   fee?: CcxtFee;
-  info: any;
 }
